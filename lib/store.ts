@@ -99,7 +99,6 @@ interface AppStore {
   itineraries: ItineraryItem[]
   login: (payload: LoginPayload) => void
   logout: () => void
-  hydrateBusinessRules: () => void
   createPlanning: (entityId: string, fechaPlaneada: string) => { ok: boolean; message: string }
   reportVisit: (payload: ReportPayload) => { ok: boolean; message: string }
   reactivateUnreportedVisit: (payload: ReactivatePayload) => { ok: boolean; message: string }
@@ -223,9 +222,6 @@ export const useAuthStore = create<AppStore>()(
         set({ user })
       },
       logout: () => set({ user: null }),
-      hydrateBusinessRules: () => {
-        set((state) => ({ visits: hydrateExpiredVisits(state.visits) }))
-      },
       createPlanning: (entityId, fechaPlaneada) => {
         const state = get()
         const user = state.user

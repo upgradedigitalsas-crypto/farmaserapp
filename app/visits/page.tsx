@@ -15,8 +15,7 @@ function toCsv(rows: Record<string, string | number>[]) {
 
 export default function VisitsPage() {
   const store = useAuthStore()
-  const { user, visits, products, createPlanning, reportVisit, hydrateBusinessRules } = store
-  hydrateBusinessRules()
+  const { user, visits, products, createPlanning, reportVisit } = store
 
   const availableEntities = selectAvailableEntitiesForCurrentMonth(store)
   const stats = getMonthlyVisitStats(store)

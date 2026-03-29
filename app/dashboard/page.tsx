@@ -8,7 +8,6 @@ import { format, isSameDay, parseISO } from 'date-fns'
 
 export default function DashboardPage() {
   const store = useAuthStore()
-  const { user, visits, baseEntities, hydrateBusinessRules } = store
 
   const stats = getMonthlyVisitStats(store)
   const todayVisits = visits.filter((visit) => user && visit.visitadorId === user.uid && isSameDay(parseISO(visit.fechaPlaneada), new Date()))
