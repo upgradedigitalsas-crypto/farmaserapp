@@ -3,7 +3,7 @@
 import Navbar from '@/app/components/layout/Navbar'
 import Sidebar from '@/app/components/layout/Sidebar'
 import { getMonthlyVisitStats, useAuthStore, visitStatusClass, visitStatusLabel } from '@/lib/store'
-import { BarChart3, Users, Calendar, ClipboardList, TriangleAlert } from 'lucide-react'
+import { BarChart3, Users, Calendar, ClipboardList, AlertTriangle } from 'lucide-react'
 import { format, isSameDay, parseISO } from 'date-fns'
 
 export default function DashboardPage() {
@@ -20,7 +20,7 @@ export default function DashboardPage() {
     { label: 'Visitas planeadas del mes', value: String(stats.planned), icon: ClipboardList, color: 'bg-blue-500' },
     { label: 'Cobertura mensual', value: `${stats.coverage}%`, icon: Users, color: 'bg-green-500' },
     { label: 'Tasa de reporte', value: `${stats.reportRate}%`, icon: BarChart3, color: 'bg-purple-500' },
-    { label: 'Tasa de olvido', value: `${stats.forgetRate}%`, icon: TriangleAlert, color: 'bg-orange-500' },
+    { label: 'Tasa de olvido', value: `${stats.forgetRate}%`, icon: AlertTriangle, color: 'bg-orange-500' },
   ]
 
   return (
