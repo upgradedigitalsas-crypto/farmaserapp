@@ -1,73 +1,66 @@
 'use client'
-
-import Navbar from '@/app/components/layout/Navbar'
-import Sidebar from '@/app/components/layout/Sidebar'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
-import { Download } from 'lucide-react'
-
-function toCsv(rows: Record<string, string>[]) {
-  if (!rows.length) return ''
-  const headers = Object.keys(rows[0])
-  const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => JSON.stringify(row[header] ?? '')).join(','))].join('\n')
-  return csv
-}
+import { Search, MapPin, User, Star, Download } from 'lucide-react'
 
 export default function MedicalCentersPage() {
-  const { user, baseEntities } = useAuthStore()
-  const rows = baseEntities.filter((item) => user && item.assignedTo === user.uid)
+  const { user } = useAuthStore()
+  const [doctors, setDoctors] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const exportCsv = () => {
-    const csv = toCsv(rows.map((row) => ({ nombre: row.name, tipo: row.type, categoria: row.category, direccion: row.address, ciudad: row.city })))
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'base-asignada.csv'
-    link.click()
-    URL.revokeObjectURL(url)
+  useEffect(() => {
+    fetch('/api/doctors').then(res => res.json()).then(data => {
+      setDoctors(Array.isArray(data) ? data : [])
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
+  const myDocs = useMemo(() => {
+    const email = user?.email?.toLowerCase().trim()
+    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email)
+  }, [doctors, user])
+
+  const filteredDocs = useMemo(() => {
+    return myDocs.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.specialty.toLowerCase().includes(searchTerm.toLowerCase()))
+  }, [myDocs, searchTerm])
+
+  const exportCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,ID,Nombre,Especialidad,Ciudad\n";
+    filteredDocs.forEach(d => { csvContent += `${d.id},"${d.name}","${d.specialty}","${d.city}"\n` });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "base_asignada.csv");
+    document.body.appendChild(link);
+    link.click();
   }
 
-  return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
-        <main className="flex-1 p-8 overflow-auto">
-          <div className="flex justify-between items-center gap-4 mb-8">
-            <div>
-              <h1 className="text-3xl font-bold">Base asignada</h1>
-              <p className="text-gray-600 mt-2">Médicos y droguerías visibles para planeación y cumplimiento.</p>
-            </div>
-            <button onClick={exportCsv} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
-              <Download size={18} /> Exportar CSV
-            </button>
-          </div>
+  if (loading) return <div className="ml-64 p-20 text-center font-black text-gray-300">CARGANDO...</div>
 
-          <div className="bg-white rounded-2xl shadow overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-100">
-                <tr>
-                  <th className="px-6 py-4 text-left font-semibold">Nombre</th>
-                  <th className="px-6 py-4 text-left font-semibold">Tipo</th>
-                  <th className="px-6 py-4 text-left font-semibold">Categoría</th>
-                  <th className="px-6 py-4 text-left font-semibold">Ciudad</th>
-                  <th className="px-6 py-4 text-left font-semibold">Dirección</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((item) => (
-                  <tr key={item.id} className="border-t">
-                    <td className="px-6 py-4">{item.name}</td>
-                    <td className="px-6 py-4 capitalize">{item.type}</td>
-                    <td className="px-6 py-4">{item.category}</td>
-                    <td className="px-6 py-4">{item.city}</td>
-                    <td className="px-6 py-4">{item.address}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+  return (
+    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px]   min-h-screen bg-[#F8FAFC]">
+      <header className="flex justify-between items-center mb-10">
+        <div><h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Mi Base Asignada</h1></div>
+        <button onClick={exportCSV} className="bg-blue-600 text-white text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-lg flex items-center gap-2"><Download size={16} /> Exportar CSV</button>
+      </header>
+      <div className="relative mb-10">
+        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <input type="text" placeholder="Buscar..." className="w-full bg-white border border-gray-100 shadow-sm rounded-2xl py-5 pl-14 pr-6 text-sm font-medium" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+      </div>
+      <div className="space-y-4">
+        {filteredDocs.map((doc, i) => (
+          <div key={i} className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex items-center gap-5">
+            <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 border"><User size={26} /></div>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-gray-900 text-base truncate uppercase">{doc.name}</p>
+              <div className="flex items-center gap-2 text-[11px] text-gray-500 font-bold uppercase mt-1">
+                <Star size={12} className="text-blue-500" /><span>{doc.specialty}</span>
+                <span className="opacity-30">•</span><MapPin size={12} /><span>{doc.city}</span>
+              </div>
+            </div>
           </div>
-        </main>
+        ))}
       </div>
     </div>
   )

@@ -1,64 +1,45 @@
 'use client'
-
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
+import { useRouter } from 'next/navigation'
 
 export default function LoginForm() {
-  const [email, setEmail] = useState('visitador@farmaser.com')
-  const [displayName, setDisplayName] = useState('Visitador Demo')
+  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login } = useAuthStore()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    login({ email, displayName })
-    router.push('/dashboard')
+    
+    if (email.trim()) {
+      useAuthStore.setState({ user: { id: '1', email: email.trim(), name: 'Visitador', role: 'visitor' } })
+      router.push('/visits')
+    }
+    
+    setLoading(false)
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="bg-white p-8 rounded-2xl shadow-md w-full max-w-md">
-        <h1 className="text-3xl font-bold text-center mb-2 text-blue-600">Farmaser</h1>
-        <p className="text-center text-sm text-gray-600 mb-6">Demo operativa ajustada a la lógica real del negocio.</p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Nombre</label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Ingresando...' : 'Ingresar'}
-          </button>
-        </form>
-
-        <div className="mt-6 pt-6 border-t text-sm text-gray-600 space-y-2">
-          <p><strong>Visitador demo:</strong> visitador@farmaser.com</p>
-          <p><strong>Admin demo:</strong> admin@farmaser.com</p>
-        </div>
+    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-sm mx-auto">
+      <div>
+        <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest ml-1">Email del Visitador</label>
+        <input 
+          type="email" 
+          required 
+          value={email} 
+          onChange={(e) => setEmail(e.target.value)} 
+          className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-700 text-sm" 
+          placeholder="tu@email.com" 
+        />
       </div>
-    </div>
+      <button 
+        type="submit" 
+        disabled={loading || !email} 
+        className="w-full bg-blue-600 text-white p-5 rounded-2xl font-black text-sm shadow-xl hover:bg-blue-700 active:scale-95 disabled:opacity-50 transition-all uppercase tracking-widest mt-4"
+      >
+        {loading ? 'Ingresando...' : 'Ingresar al Sistema'}
+      </button>
+    </form>
   )
 }

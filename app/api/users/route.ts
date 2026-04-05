@@ -1,15 +1,44 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { google } from 'googleapis';
+import { NextResponse } from 'next/server';
 
-export async function GET(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
   try {
-    // Obtener usuarios del Google Sheets
-    const users = [
-      { id: 1, name: 'Pablo Palacios', email: 'pablo@farmaser.com', role: 'admin' },
-      { id: 2, name: 'Visitador 1', email: 'visitador1@farmaser.com', role: 'visitador' },
-    ]
+    const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+    let key = process.env.GOOGLE_PRIVATE_KEY || '';
+    const sheetId = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_ID;
 
-    return NextResponse.json(users)
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
+    // --- EL LIMPIADOR DEFINITIVO ---
+    const cleanKey = key
+      .trim()
+      .replace(/^"(.*)"$/, '$1') // Quita comillas dobles si envuelven todo el texto
+      .replace(/^'(.*)'$/, '$1') // Quita comillas simples si envuelven todo el texto
+      .replace(/\\n/g, '\n');    // Convierte el texto \n en saltos de línea reales
+
+    const auth = new google.auth.JWT(
+      email, 
+      undefined, 
+      cleanKey, 
+      ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    );
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: 'Usuarios!A2:B150',
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      total: response.data.values?.length || 0,
+      users: response.data.values 
+    });
+  } catch (error: any) {
+    return NextResponse.json({ 
+      error: "Error de conexión", 
+      detalle: error.message,
+      ayuda: "Si dice 'DECODER', la llave sigue teniendo comillas invisibles."
+    }, { status: 500 });
   }
 }

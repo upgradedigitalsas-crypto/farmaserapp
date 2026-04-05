@@ -1,258 +1,238 @@
 'use client'
+import { useState, useEffect, useMemo } from 'react'
+import { useAuthStore } from '@/lib/store'
+import { db } from '@/lib/firebase'
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, orderBy } from 'firebase/firestore'
+import { Search, User, Filter, Calendar, Zap, Loader2, X, Lock, Pencil } from 'lucide-react'
 
-import Navbar from '@/app/components/layout/Navbar'
-import Sidebar from '@/app/components/layout/Sidebar'
-import { getMonthlyVisitStats, selectAvailableEntitiesForCurrentMonth, useAuthStore, visitStatusClass, visitStatusLabel } from '@/lib/store'
-import { format, isSameDay, parseISO } from 'date-fns'
-import { Download, Plus, Save } from 'lucide-react'
-import { useMemo, useState } from 'react'
+export default function PlanningPage() {
+  // Conectamos con el cerebro global (Store)
+  const { user, selectedRep, setSelectedRep } = useAuthStore()
+  const [doctors, setDoctors] = useState<any[]>([])
+  const [plannedVisits, setPlannedVisits] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
+  
+  // Ajustamos a la fecha actual (Abril 2026)
+  const [visitDate, setVisitDate] = useState('2026-04-01')
+  const [status, setStatus] = useState('Planeada')
+  const [editingId, setEditingId] = useState<string | null>(null)
 
-function toCsv(rows: Record<string, string | number>[]) {
-  if (!rows.length) return ''
-  const headers = Object.keys(rows[0])
-  return [headers.join(','), ...rows.map((row) => headers.map((header) => JSON.stringify(String(row[header] ?? ''))).join(','))].join('\n')
-}
+  // Identificamos si es el Gran Jefe
+  const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
 
-export default function VisitsPage() {
-  const store = useAuthStore()
-  const { user, visits, products, createPlanning, reportVisit } = store
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      // 1. Cargamos médicos
+      const resDocs = await fetch('/api/doctors')
+      const dataDocs = await resDocs.json()
+      setDoctors(Array.isArray(dataDocs) ? dataDocs : [])
 
-  const availableEntities = selectAvailableEntitiesForCurrentMonth(store)
-  const stats = getMonthlyVisitStats(store)
-  const todayVisits = useMemo(
-    () => visits.filter((visit) => user && visit.visitadorId === user.uid && isSameDay(parseISO(visit.fechaPlaneada), new Date()) && visit.estado === 'planeada'),
-    [visits, user],
-  )
+      // 2. Cargamos Citas con lógica de Admin
+      let q;
+      const visitsRef = collection(db, 'planned_visits');
+      
+      // Filtro de tiempo: Mes de Abril 2026
+      if (isAdmin && selectedRep === 'Todos') {
+        // El Gerente ve TODO lo planeado en el mes
+        q = query(visitsRef, orderBy('visitDate', 'asc'));
+      } else {
+        // Filtro por visitador específico (o el propio si no es admin)
+        const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase();
+        q = query(visitsRef, where('userEmail', '==', targetEmail), orderBy('visitDate', 'asc'));
+      }
 
-  const [entityId, setEntityId] = useState(availableEntities[0]?.id ?? '')
-  const [fechaPlaneada, setFechaPlaneada] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [feedback, setFeedback] = useState('')
-  const [activeVisitId, setActiveVisitId] = useState<string | null>(null)
-  const [reportForms, setReportForms] = useState<Record<string, { estado: 'realizada' | 'cancelada' | 'reprogramada'; motivo: string; observations: string; fechaRealVisita: string; formulations: { productId: string; quantity: number }[] }>>({})
-
-  const exportCsv = () => {
-    const csv = toCsv(
-      visits
-        .filter((visit) => user && visit.visitadorId === user.uid)
-        .map((visit) => ({ nombre: visit.entityName, tipo: visit.entityType, fecha_planeada: visit.fechaPlaneada, estado: visitStatusLabel[visit.estado], ciudad: visit.city })),
-    )
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'visitas.csv'
-    link.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const selectedEntity = availableEntities.find((item) => item.id === entityId)
-
-  const handleCreatePlanning = () => {
-    const response = createPlanning(entityId, fechaPlaneada)
-    setFeedback(response.message)
-    if (response.ok) {
-      setEntityId('')
-      setFechaPlaneada(format(new Date(), 'yyyy-MM-dd'))
+      const querySnapshot = await getDocs(q)
+      // Filtramos en cliente para asegurar que solo vemos el mes actual (04)
+      const allVisits = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      setPlannedVisits(allVisits.filter((v: any) => v.visitDate?.includes('-04-')));
+      
+    } catch (e) { 
+      console.error(e) 
+    } finally { 
+      setLoading(false) 
     }
   }
 
-  const initReportForm = (visitId: string) => {
-    if (reportForms[visitId]) return
-    setReportForms((prev) => ({
-      ...prev,
-      [visitId]: {
-        estado: 'realizada',
-        motivo: '',
-        observations: '',
-        fechaRealVisita: '',
-        formulations: [{ productId: products[0]?.id || '', quantity: 1 }],
-      },
-    }))
+  useEffect(() => { fetchData() }, [user, selectedRep])
+
+  // Lista de visitadores para el menú (solo para Admin)
+  const repsList = useMemo(() => {
+    if (!isAdmin) return []
+    return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
+  }, [doctors, isAdmin])
+
+  const isDateEditable = (dateToCheck: string) => {
+    const today = new Date().toISOString().slice(0, 10)
+    return today <= dateToCheck
   }
 
-  const updateForm = (visitId: string, patch: Partial<{ estado: 'realizada' | 'cancelada' | 'reprogramada'; motivo: string; observations: string; fechaRealVisita: string; formulations: { productId: string; quantity: number }[] }>) => {
-    initReportForm(visitId)
-    setReportForms((prev) => ({ ...prev, [visitId]: { ...prev[visitId], ...patch } }))
+  const handleSaveVisit = async () => {
+    if (!selectedDoctor || !visitDate) return alert('Datos incompletos')
+    if (isAdmin && selectedRep === 'Todos') return alert('Selecciona un visitador específico para agendarle una cita')
+    
+    setSaving(true)
+    try {
+      const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase();
+      if (editingId) {
+        const docRef = doc(db, 'planned_visits', editingId)
+        await updateDoc(docRef, { visitDate, status, updatedAt: Timestamp.now() })
+        alert('Planeación actualizada')
+      } else {
+        await addDoc(collection(db, 'planned_visits'), {
+          userEmail: targetEmail,
+          doctorName: selectedDoctor.name,
+          doctorId: selectedDoctor.id,
+          doctorDetails: {
+            category: selectedDoctor.category || 'A',
+            specialty: selectedDoctor.specialty,
+            city: selectedDoctor.city,
+            address: selectedDoctor.address || 'Principal'
+          },
+          visitDate,
+          status,
+          createdAt: Timestamp.now()
+        })
+        alert('Visita agendada')
+      }
+      resetForm()
+      fetchData()
+    } catch (e) { alert('Error al procesar') } finally { setSaving(false) }
   }
 
-  const handleReport = (visitId: string) => {
-    const form = reportForms[visitId]
-    if (!form) return
-    const response = reportVisit({
-      visitId,
-      estado: form.estado,
-      motivo: form.motivo,
-      observations: form.observations,
-      fechaRealVisita: form.fechaRealVisita,
-      formulations: form.formulations.filter((item) => item.productId && item.quantity > 0),
-    })
-    setFeedback(response.message)
-    if (response.ok) setActiveVisitId(null)
+  const startEdit = (visit: any) => {
+    setEditingId(visit.id)
+    setSelectedDoctor({ id: visit.doctorId, name: visit.doctorName, ...visit.doctorDetails })
+    setVisitDate(visit.visitDate)
+    setStatus(visit.status)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  const resetForm = () => {
+    setEditingId(null)
+    setSelectedDoctor(null)
+    setSearchTerm('')
+    setVisitDate('2026-04-01')
+  }
+
+  const myDocsFiltered = useMemo(() => {
+    const targetEmail = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim();
+    if (!targetEmail && isAdmin) return []; // El admin debe elegir a alguien para buscar sus médicos
+
+    const base = doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === targetEmail)
+    if (!searchTerm || selectedDoctor) return []
+    return base.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 5)
+  }, [doctors, user, searchTerm, selectedDoctor, selectedRep, isAdmin])
+
+  const getVisitsForDay = (day: number) => {
+    const currentDayStr = `2026-04-${day.toString().padStart(2, '0')}`
+    return plannedVisits.filter(v => v.visitDate === currentDayStr)
+  }
+
+  const days = Array.from({length: 30}, (_, i) => i + 1) // Abril tiene 30 días
 
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
-        <main className="flex-1 p-8 overflow-auto space-y-8">
-          <div className="flex justify-between items-start gap-6 flex-wrap">
-            <div>
-              <h1 className="text-3xl font-bold">Planeación y reporte</h1>
-              <p className="text-gray-600 mt-2">Planea una sola vez por mes y reporta únicamente las citas del día en curso.</p>
+    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+        <div>
+          <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">Planeación</h1>
+          <p className="text-gray-500 font-medium">Abril 2026 — Gestión de agenda mensual</p>
+        </div>
+
+        {isAdmin && (
+          <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600"><Filter size={20}/></div>
+            <div className="pr-3">
+              <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Auditando Agenda</p>
+              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none">
+                <option value="Todos">Toda la Empresa</option>
+                {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
+              </select>
             </div>
-            <button onClick={exportCsv} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700">
-              <Download size={18} /> Exportar CSV
-            </button>
           </div>
+        )}
+      </header>
 
-          {feedback && <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl">{feedback}</div>}
-
-          <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-6">
-            <section className="bg-white rounded-2xl shadow p-6 space-y-4">
-              <div className="flex items-center gap-2">
-                <Plus className="text-blue-600" size={20} />
-                <h2 className="text-xl font-bold">Planeación del mes</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Médico o droguería</label>
-                  <select value={entityId} onChange={(e) => setEntityId(e.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2">
-                    <option value="">Selecciona</option>
-                    {availableEntities.map((entity) => (
-                      <option key={entity.id} value={entity.id}>{entity.name}</option>
+      <div className="flex flex-col gap-10">
+        {/* Formulario de agendamiento (Solo si hay un visitador seleccionado) */}
+        {(!isAdmin || (isAdmin && selectedRep !== 'Todos')) && (
+          <div className="w-full space-y-6">
+            {!editingId && (
+              <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <label className="text-[10px] font-black uppercase text-gray-400 mb-4 block ml-2">Buscar médico en cartera de {isAdmin ? selectedRep : 'mi usuario'}</label>
+                <div className="relative">
+                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input type="text" placeholder="Escribe nombre del médico..." className="w-full bg-gray-50 border-none rounded-2xl py-5 pl-14 pr-6 text-sm font-bold focus:ring-2 focus:ring-blue-600" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                </div>
+                {searchTerm && (
+                  <div className="mt-4 space-y-2">
+                    {myDocsFiltered.map((doc) => (
+                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-gray-50 hover:bg-blue-50 rounded-2xl transition-all font-bold uppercase text-xs">{doc.name} — {doc.city}</button>
                     ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700">Fecha de visita</label>
-                  <input type="date" value={fechaPlaneada} onChange={(e) => setFechaPlaneada(e.target.value)} className="mt-1 w-full border rounded-lg px-3 py-2" />
-                </div>
-              </div>
-
-              {selectedEntity && (
-                <div className="bg-gray-50 rounded-xl p-4 text-sm grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div><span className="text-gray-500 block">Ciudad</span><strong>{selectedEntity.city}</strong></div>
-                  <div><span className="text-gray-500 block">Dirección</span><strong>{selectedEntity.address}</strong></div>
-                  <div><span className="text-gray-500 block">Categoría</span><strong>{selectedEntity.category}</strong></div>
-                </div>
-              )}
-
-              <button onClick={handleCreatePlanning} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Guardar planeación</button>
-
-              <div className="border-t pt-4 text-sm text-gray-600">
-                <p><strong>Disponibles para planeación este mes:</strong> {availableEntities.length}</p>
-                <p><strong>Planeadas:</strong> {stats.planned} · <strong>Realizadas:</strong> {stats.realized}</p>
-              </div>
-            </section>
-
-            <section className="bg-white rounded-2xl shadow p-6">
-              <h2 className="text-xl font-bold mb-4">Reporte del día</h2>
-              <p className="text-sm text-gray-500 mb-4">Solo ves y reportas citas de hoy. Las no reportadas pasan al log administrativo.</p>
-              <div className="space-y-4">
-                {todayVisits.length === 0 ? (
-                  <div className="p-4 rounded-xl bg-gray-50 text-gray-500">No hay citas pendientes para hoy.</div>
-                ) : (
-                  todayVisits.map((visit) => {
-                    const form = reportForms[visit.id]
-                    return (
-                      <div key={visit.id} className="border rounded-2xl p-4">
-                        <div className="flex justify-between gap-4 flex-wrap">
-                          <div>
-                            <p className="font-semibold">{visit.entityName}</p>
-                            <p className="text-sm text-gray-500">{visit.city} · {visit.address}</p>
-                            <p className="text-sm text-gray-500">{visit.entityType} · {visit.category}</p>
-                          </div>
-                          <span className={`px-3 py-1 rounded-full text-sm h-fit ${visitStatusClass[visit.estado]}`}>
-                            {visitStatusLabel[visit.estado]}
-                          </span>
-                        </div>
-
-                        <div className="mt-4">
-                          <button
-                            onClick={() => {
-                              setActiveVisitId(activeVisitId === visit.id ? null : visit.id)
-                              initReportForm(visit.id)
-                            }}
-                            className="text-blue-600 font-medium"
-                          >
-                            {activeVisitId === visit.id ? 'Cerrar formulario' : 'Reportar cita'}
-                          </button>
-                        </div>
-
-                        {activeVisitId === visit.id && form && (
-                          <div className="mt-4 space-y-4 bg-gray-50 p-4 rounded-xl">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div>
-                                <label className="text-sm font-medium">Estado</label>
-                                <select value={form.estado} onChange={(e) => updateForm(visit.id, { estado: e.target.value as 'realizada' | 'cancelada' | 'reprogramada' })} className="mt-1 w-full border rounded-lg px-3 py-2">
-                                  <option value="realizada">Realizada</option>
-                                  <option value="cancelada">Cancelada</option>
-                                  <option value="reprogramada">Reprogramada</option>
-                                </select>
-                              </div>
-                              {form.estado === 'reprogramada' && (
-                                <div>
-                                  <label className="text-sm font-medium">Nueva fecha real de visita</label>
-                                  <input type="date" value={form.fechaRealVisita} onChange={(e) => updateForm(visit.id, { fechaRealVisita: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" />
-                                </div>
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="text-sm font-medium">Motivo / razón</label>
-                              <input type="text" value={form.motivo} onChange={(e) => updateForm(visit.id, { motivo: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2" />
-                            </div>
-
-                            <div>
-                              <label className="text-sm font-medium">Observaciones</label>
-                              <textarea value={form.observations} onChange={(e) => updateForm(visit.id, { observations: e.target.value })} className="mt-1 w-full border rounded-lg px-3 py-2 min-h-[100px]" />
-                            </div>
-
-                            <div>
-                              <div className="flex justify-between items-center mb-2">
-                                <label className="text-sm font-medium">Formulación de productos</label>
-                                <button
-                                  type="button"
-                                  className="text-blue-600 text-sm"
-                                  onClick={() => updateForm(visit.id, { formulations: [...form.formulations, { productId: products[0]?.id || '', quantity: 1 }] })}
-                                >
-                                  Agregar producto
-                                </button>
-                              </div>
-                              <div className="space-y-2">
-                                {form.formulations.map((item, index) => (
-                                  <div key={`${visit.id}-${index}`} className="grid grid-cols-[1fr_120px] gap-3">
-                                    <select value={item.productId} onChange={(e) => {
-                                      const next = [...form.formulations]
-                                      next[index] = { ...next[index], productId: e.target.value }
-                                      updateForm(visit.id, { formulations: next })
-                                    }} className="border rounded-lg px-3 py-2">
-                                      {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-                                    </select>
-                                    <input type="number" min={1} value={item.quantity} onChange={(e) => {
-                                      const next = [...form.formulations]
-                                      next[index] = { ...next[index], quantity: Number(e.target.value) }
-                                      updateForm(visit.id, { formulations: next })
-                                    }} className="border rounded-lg px-3 py-2" />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            <button onClick={() => handleReport(visit.id)} className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700">
-                              <Save size={18} /> Guardar reporte
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
+                  </div>
                 )}
               </div>
-            </section>
+            )}
+
+            {selectedDoctor && (
+              <div className={`p-8 rounded-[40px] shadow-xl border-2 transition-all ${editingId ? 'bg-orange-50 border-orange-400' : 'bg-white border-blue-600'}`}>
+                <div className="flex justify-between items-start mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
+                    <div>
+                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{selectedDoctor.name}</h2>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">{selectedDoctor.specialty} | {selectedDoctor.city}</p>
+                    </div>
+                  </div>
+                  <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase block mb-2 ml-1">Fecha</label>
+                    <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase block mb-2 ml-1">Estado</label>
+                    <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm">
+                      <option value="Planeada">Planeada</option>
+                      <option value="Realizada">Realizada</option>
+                      <option value="Reagendada">Reagendada</option>
+                    </select>
+                  </div>
+                </div>
+                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}>
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
+                </button>
+              </div>
+            )}
           </div>
-        </main>
+        )}
+
+        {/* Calendario Mensual */}
+        <div className="w-full">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
+            {days.map(d => {
+              const visits = getVisitsForDay(d);
+              return (
+                <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visits.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
+                  <span className={`text-[11px] font-black mb-2 ${visits.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / 04</span>
+                  <div className="flex flex-col gap-1.5">
+                    {visits.map((v, idx) => (
+                      <button key={idx} onClick={() => startEdit(v)} className="group bg-blue-600 text-white text-[9px] lg:text-[7.5px] font-black uppercase p-1.5 lg:p-1 rounded-lg shadow-sm text-left px-2 leading-tight flex justify-between items-center hover:bg-blue-700 transition-all">
+                        <span className="truncate flex-1">{v.doctorName}</span>
+                        <Pencil size={8} className="opacity-0 group-hover:opacity-100 ml-1" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
