@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const usersRef = collection(db, 'users');
@@ -14,15 +16,15 @@ export async function GET() {
       const user = doc.data();
       if (user.role === 'visitor') {
         if (!user.lastLogin) {
-          inactiveUsers.push({ name: user.name, email: user.email, dateText: 'Nunca ha entrado', days: 'N/A' });
+          inactiveUsers.push({ name: user.name || 'Sin nombre', email: user.email, dateText: 'Nunca ha entrado', days: 'N/A' });
         } else {
           const lastLoginDate = new Date(user.lastLogin);
           const diffTime = Math.abs(now.getTime() - lastLoginDate.getTime());
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
           
           if (diffDays >= 3) {
             inactiveUsers.push({
-              name: user.name,
+              name: user.name || 'Sin nombre',
               email: user.email,
               dateText: lastLoginDate.toLocaleDateString(),
               days: diffDays + ' días'
@@ -46,14 +48,14 @@ export async function GET() {
 
     const htmlContent = `
       <div style="font-family: Arial; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1e3a8a;">Reporte de Inactividad Farmaser</h2>
+        <h2 style="color: #1e3a8a;">Farmaser: Reporte de Inactividad</h2>
         <p>Hola Benjamín, estos usuarios llevan 3 días o más sin conexión:</p>
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
-            <tr style="background: #eee;">
+            <tr style="background: #f4f4f4;">
               <th style="padding: 10px; text-align: left;">Nombre</th>
               <th style="padding: 10px; text-align: left;">Email</th>
-              <th style="padding: 10px; text-align: left;">Inactivo</th>
+              <th style="padding: 10px; text-align: left;">Días Inactivo</th>
             </tr>
           </thead>
           <tbody>${tableRows}</tbody>
@@ -71,14 +73,15 @@ export async function GET() {
       body: JSON.stringify({
         sender: { name: "Sistema Farmaser", email: "no-reply@gestiondiariafarmaser.com" },
         to: [{ email: "entrenamientofarmaser@gmail.com", name: "Benjamín" }],
-        subject: "⚠️ Alerta de Inactividad",
+        subject: "⚠️ Alerta de Inactividad: Visitadores Farmaser",
         htmlContent: htmlContent,
       }),
     });
 
-    return NextResponse.json({ message: 'Proceso de alerta ejecutado.' });
+    return NextResponse.json({ message: 'Alerta procesada correctamente.' });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: 'Error de permisos o conexión.' }, { status: 500 });
   }
 }
