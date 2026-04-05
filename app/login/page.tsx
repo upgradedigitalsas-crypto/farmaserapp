@@ -18,7 +18,7 @@ export default function LoginPage() {
     setIsMounted(true)
   }, [])
 
-  if (!isMounted) return null; // No renderiza NADA en el servidor, evita el error de Firestore
+  if (!isMounted) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,7 +56,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center">
-        <h1 className="text-3xl font-bold mb-6 text-gray-900">Farmaser</h1>
+        
+        {/* Logo de Farmaser Centrado */}
+        <img 
+          src="/Farmaser%20Logo.png" 
+          alt="Farmaser Logo" 
+          className="h-16 w-auto mx-auto mb-6 object-contain" 
+        />
+
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <input
             type="email"
