@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen } from 'lucide-react';
 
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const menuItems = [
   { name: 'Visitas', href: '/visits', icon: ClipboardList },
   { name: 'Itinerario', href: '/itinerary', icon: CalendarDays },
   { name: 'Reportes', href: '/reports', icon: BarChart3 },
+  { name: 'Labores Visitador', href: '/labores', icon: BookOpen },
 ];
 
 export default function Sidebar() {
@@ -17,8 +18,7 @@ export default function Sidebar() {
   const { logout } = useAuth();
 
   return (
-    <div className="flex h-full w-full flex-col bg-slate-900 text-white">
-      {/* SECCIÓN DEL LOGO */}
+    <div className="flex h-full flex-col bg-slate-900 text-white">
       <div className="flex h-20 items-center justify-center border-b border-slate-800 px-4">
         <img 
           src="/Farmaser%20Logo.png" 
@@ -26,8 +26,7 @@ export default function Sidebar() {
           className="h-10 w-auto object-contain" 
         />
       </div>
-
-      {/* MENÚ DE NAVEGACIÓN */}
+      
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {menuItems.map((item) => {
           const isActive = pathname === item.href;
@@ -46,7 +45,6 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* BOTÓN DE SALIR */}
       <div className="border-t border-slate-800 p-4">
         <button 
           onClick={logout} 
