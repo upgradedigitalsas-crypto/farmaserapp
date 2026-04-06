@@ -95,7 +95,6 @@ export default function PlanningPage() {
     } catch (e) { alert('Error al procesar') } finally { setSaving(false) }
   }
 
-  // LA NUEVA FUNCIÓN PARA ELIMINAR
   const handleDeleteVisit = async () => {
     if (!editingId) return;
     
@@ -132,14 +131,24 @@ export default function PlanningPage() {
     setVisitDate('2026-04-01')
   }
 
+  // REGLA DE NEGOCIO INYECTADA: Ocultar si ya está planeado en el mes
   const myFullDocsList = useMemo(() => {
     const targetEmail = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim();
     if (!targetEmail && isAdmin) return [];
-    const base = doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === targetEmail);
-    return base.sort((a: any, b: any) => a.name.localeCompare(b.name));
-  }, [doctors, user, selectedRep, isAdmin]);
+    
+    // 1. Identificamos todos los médicos que ya tienen cita este mes
+    const plannedDoctorIds = new Set(plannedVisits.map(v => v.doctorId));
 
-  // EL BUSCADOR MULTICRITERIO INTACTO
+    // 2. Filtramos la cartera para mostrar SOLO los no agendados
+    const base = doctors.filter((d: any) => {
+      const isAssignedToMe = String(d.assignedTo || '').toLowerCase().trim() === targetEmail;
+      const isNotPlannedYet = !plannedDoctorIds.has(d.id);
+      return isAssignedToMe && isNotPlannedYet;
+    });
+
+    return base.sort((a: any, b: any) => a.name.localeCompare(b.name));
+  }, [doctors, user, selectedRep, isAdmin, plannedVisits]);
+
   const myDocsFiltered = useMemo(() => {
     if (!searchTerm || selectedDoctor) return [];
     const term = searchTerm.toLowerCase();
@@ -190,7 +199,7 @@ export default function PlanningPage() {
             {!editingId && (
               <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 
-                <label className="text-[10px] font-black uppercase text-gray-400 mb-3 block ml-2">Desplegar lista de mi cartera</label>
+                <label className="text-[10px] font-black uppercase text-gray-400 mb-3 block ml-2">Desplegar lista de mi cartera (Faltantes por agendar)</label>
                 <div className="mb-6 relative">
                   <select
                     className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 px-5 text-sm font-bold text-gray-700 focus:ring-2 focus:ring-blue-600 cursor-pointer appearance-none"
@@ -209,7 +218,7 @@ export default function PlanningPage() {
                       }
                     }}
                   >
-                    <option value="">-- Toca aquí para ver todos los médicos y droguerías --</option>
+                    <option value="">-- Toca aquí para ver los médicos que faltan por visitar --</option>
                     {myFullDocsList.map((doc:any) => (
                       <option key={doc.id} value={doc.id}>{doc.name} — {doc.city}</option>
                     ))}
@@ -270,7 +279,6 @@ export default function PlanningPage() {
                   </div>
                 </div>
                 
-                {/* LOS DOS BOTONES: ACTUALIZAR Y EL NUEVO ROJO DE ELIMINAR */}
                 <div className="flex flex-col gap-3">
                   <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}>
                     {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
