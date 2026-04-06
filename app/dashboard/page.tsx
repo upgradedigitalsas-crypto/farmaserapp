@@ -90,6 +90,10 @@ export default function DashboardPage() {
   const planeadasMes = monthVisits.length
   const realizadasMes = monthVisits.filter(v => v.status === 'Realizada').length
   const efectividad = planeadasMes > 0 ? Math.round((realizadasMes / planeadasMes) * 100) : 0
+  
+  // LÓGICA DE COBERTURA: Médicos únicos planeados / Total en cartera
+  const uniqueDocsPlanned = new Set(monthVisits.map(v => v.doctorId)).size
+  const cobertura = myDocsCount > 0 ? Math.round((uniqueDocsPlanned / myDocsCount) * 100) : 0
 
   if (loading) return <div className="ml-64 p-20 text-center font-black text-gray-300 animate-pulse">SINCRONIZANDO...</div>
 
@@ -134,7 +138,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-12">
         {[
           { label: 'Planeadas mes', val: planeadasMes, icon: CalendarDays, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Cobertura', val: '0%', icon: Users2, color: 'text-green-600', bg: 'bg-green-50' },
+          { label: 'Cobertura', val: `${cobertura}%`, icon: Users2, color: 'text-green-600', bg: 'bg-green-50' },
           { label: 'Efectividad', val: `${efectividad}%`, icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
           { label: 'No reportadas', val: planeadasMes - realizadasMes, icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50' },
         ].map((kpi, i) => (
