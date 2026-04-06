@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/daily-report?token=farmaser-cron-secreto-2026",
+      "schedule": "0 0 * * 2-6"
+    }
+  ]
+}
