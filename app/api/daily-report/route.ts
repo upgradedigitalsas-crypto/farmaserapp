@@ -1,10 +1,32 @@
 import { NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import * as admin from 'firebase-admin';
+
+// 1. Inicialización del "Pase VIP" (Admin SDK) igual que ayer
+if (!admin.apps.length) {
+  try {
+    const rawKey = process.env.FIREBASE_PRIVATE_KEY;
+    const formattedKey = rawKey 
+      ? rawKey.replace(/\\n/g, '\n').replace(/"/g, '').trim() 
+      : undefined;
+
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: formattedKey,
+      }),
+    });
+  } catch (error: any) {
+    console.error('Error de inicialización Admin:', error.message);
+  }
+}
+
+const db = admin.firestore();
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    // 1. Candado de seguridad: Evitar que cualquiera active la API
+    // 2. Candado de seguridad de la URL
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
     
@@ -12,27 +34,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 2. Calcular la fecha exacta en zona horaria de Colombia
-    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' }); // Formato: YYYY-MM-DD
+    // 3. Fecha en Zona Horaria de Colombia
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
     const adminEmail = 'entrenamientofarmaser@gmail.com';
 
-    // 3. Obtener Visitas Planeadas de hoy
-    const plannedRef = collection(db, 'planned_visits');
-    const qPlanned = query(plannedRef, where('visitDate', '==', today));
-    const plannedSnap = await getDocs(qPlanned);
+    // 4. Buscar Visitas Planeadas (Usando Admin SDK)
+    const plannedSnap = await db.collection('planned_visits').where('visitDate', '==', today).get();
     const plannedVisits = plannedSnap.docs.map(d => d.data());
 
-    // 4. Obtener Visitas Reales (Reportadas) de hoy
-    const realRef = collection(db, 'visits');
-    const qReal = query(realRef, where('date', '==', today)); 
-    const realSnap = await getDocs(qReal);
+    // 5. Buscar Visitas Reales (Usando Admin SDK)
+    const realSnap = await db.collection('visits').where('date', '==', today).get();
     const realVisits = realSnap.docs.map(d => d.data());
 
     if (plannedVisits.length === 0 && realVisits.length === 0) {
       return NextResponse.json({ message: `Sin actividad reportada para el dia ${today}` });
     }
 
-    // 5. Construir la tabla del correo
+    // 6. Construir tabla
     let tableRows = '';
     const allActivity = [
       ...plannedVisits.map(v => ({...v, type: 'Planeada'})), 
@@ -75,16 +93,16 @@ export async function GET(request: Request) {
       </div>
     `;
 
-    // 6. Enviar vía Brevo
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    // 7. Enviar vía Brevo
+    await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'accept': 'application/json',
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
         'api-key': process.env.BREVO_API_KEY as string,
-        'content-type': 'application/json',
       },
       body: JSON.stringify({
-        sender: { name: "Farmaser CRM", email: "alertas@farmaser.com" },
+        sender: { name: "Sistema Farmaser", email: "no-reply@gestiondiariafarmaser.com" },
         to: [{ email: adminEmail }],
         subject: `📊 Reporte Diario de Citas - ${today}`,
         htmlContent: htmlContent
@@ -93,6 +111,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Reporte enviado con éxito a ' + adminEmail, date: today });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Error de Servidor Admin", detail: error.message }, { status: 500 });
   }
 }
