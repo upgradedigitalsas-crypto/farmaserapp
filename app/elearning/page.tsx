@@ -2,9 +2,8 @@
 import React from 'react';
 import { GraduationCap, Lock } from 'lucide-react';
 import dynamic from 'next/dynamic';
-
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
-import animationData from '../../public/animations/fomo.json';
+import animationData from '../data/fomo.json';
 
 export default function ELearningPage() {
   return (
@@ -16,8 +15,8 @@ export default function ELearningPage() {
       <h3 className="text-2xl font-bold text-slate-800 mb-4 max-w-2xl">
         Módulo Premium: Para activar esta funcionalidad y acceder al contenido, contacta al administrador de la App.
       </h3>
-      <div className="w-72 h-72 flex items-center justify-center">
-        <Lottie animationData={animationData} loop={true} style={{ width: '100%', height: '100%' }} />
+      <div className="w-72 h-72">
+        <Lottie animationData={animationData} loop={true} />
       </div>
     </div>
   );
