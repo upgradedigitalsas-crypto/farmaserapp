@@ -15,12 +15,15 @@ export default function PerfilPage() {
 
   useEffect(() => {
     if (user) {
-      setName(user.name || '');
-      setPhone(user.phone || '');
+      const userData = user as any;
+      setName(userData.name || '');
+      setPhone(userData.phone || '');
     }
   }, [user]);
 
   if (!user) return <div className="p-6 text-center text-slate-500">Cargando perfil...</div>;
+
+  const userData = user as any;
 
   const handleSave = async () => {
     setLoading(true);
@@ -55,10 +58,10 @@ export default function PerfilPage() {
         <div className="bg-slate-50 p-6 flex items-center gap-6 border-b border-slate-200">
           <UserCircle className="w-20 h-20 text-slate-300" />
           <div>
-            <h2 className="text-2xl font-bold text-slate-800">{user.name}</h2>
+            <h2 className="text-2xl font-bold text-slate-800">{userData.name}</h2>
             <div className="flex items-center gap-2 text-slate-500 mt-1">
               <ShieldCheck className="w-4 h-4" />
-              <span className="capitalize">{user.role}</span>
+              <span className="capitalize">{userData.role}</span>
             </div>
           </div>
         </div>
@@ -82,7 +85,7 @@ export default function PerfilPage() {
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                 <Mail className="w-4 h-4 text-slate-400" /> Correo Electrónico
               </label>
-              <input type="email" value={user.email} disabled className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-500" />
+              <input type="email" value={userData.email} disabled className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-500" />
               <p className="text-xs text-slate-400">El correo de acceso no se puede cambiar.</p>
             </div>
 
@@ -97,13 +100,13 @@ export default function PerfilPage() {
               <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                 <Briefcase className="w-4 h-4 text-slate-400" /> Rol en el Sistema
               </label>
-              <input type="text" value={user.role} disabled className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 capitalize" />
+              <input type="text" value={userData.role} disabled className="w-full p-3 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 capitalize" />
             </div>
           </div>
 
           {isEditing && (
             <div className="pt-6 border-t border-slate-100 flex gap-3 justify-end">
-              <button onClick={() => { setIsEditing(false); setName(user.name || ''); setPhone(user.phone || ''); setMessage(''); }} className="px-6 py-2 rounded-lg font-medium text-slate-600 hover:bg-slate-100 transition-colors">
+              <button onClick={() => { setIsEditing(false); setName(userData.name || ''); setPhone(userData.phone || ''); setMessage(''); }} className="px-6 py-2 rounded-lg font-medium text-slate-600 hover:bg-slate-100 transition-colors">
                 Cancelar
               </button>
               <button onClick={handleSave} disabled={loading} className="flex items-center gap-2 px-6 py-2 rounded-lg font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 transition-colors">
