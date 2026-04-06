@@ -78,28 +78,38 @@ export default function PlanningPage() {
     setSaving(true)
     try {
       const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase();
+      
+      const newVisitData = {
+        userEmail: targetEmail,
+        doctorName: selectedDoctor.name,
+        doctorId: selectedDoctor.id,
+        doctorDetails: {
+          category: selectedDoctor.category || 'A',
+          specialty: selectedDoctor.specialty,
+          city: selectedDoctor.city,
+          address: selectedDoctor.address || 'Principal'
+        },
+        visitDate,
+        status,
+        updatedAt: Timestamp.now()
+      };
+
       if (editingId) {
         const docRef = doc(db, 'planned_visits', editingId)
-        await updateDoc(docRef, { visitDate, status, updatedAt: Timestamp.now() })
+        await updateDoc(docRef, newVisitData)
+        
+        // PARCHE: Actualizar el estado local instantáneamente
+        setPlannedVisits(prev => prev.map(v => v.id === editingId ? { ...v, ...newVisitData } : v));
         alert('Planeación actualizada')
       } else {
-        await addDoc(collection(db, 'planned_visits'), {
-          userEmail: targetEmail,
-          doctorName: selectedDoctor.name,
-          doctorId: selectedDoctor.id,
-          doctorDetails: {
-            category: selectedDoctor.category || 'A',
-            specialty: selectedDoctor.specialty,
-            city: selectedDoctor.city,
-            address: selectedDoctor.address || 'Principal'
-          },
-          visitDate,
-          status,
-          createdAt: Timestamp.now()
-        })
+        const docRef = await addDoc(collection(db, 'planned_visits'), { ...newVisitData, createdAt: Timestamp.now() })
+        
+        // PARCHE: Agregar la nueva cita al estado local instantáneamente
+        setPlannedVisits(prev => [...prev, { id: docRef.id, ...newVisitData }]);
         alert('Visita agendada')
       }
       resetForm()
+      // Aunque lo inyectamos arriba, llamamos a fetchData como respaldo en background
       fetchData()
     } catch (e) { alert('Error al procesar') } finally { setSaving(false) }
   }
