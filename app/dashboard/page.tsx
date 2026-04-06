@@ -89,11 +89,13 @@ export default function DashboardPage() {
 
   const planeadasMes = monthVisits.length
   const realizadasMes = monthVisits.filter(v => v.status === 'Realizada').length
-  const efectividad = planeadasMes > 0 ? Math.round((realizadasMes / planeadasMes) * 100) : 0
   
-  // LÓGICA DE COBERTURA: Médicos únicos planeados / Total en cartera
-  const uniqueDocsPlanned = new Set(monthVisits.map(v => v.doctorId)).size
-  const cobertura = myDocsCount > 0 ? Math.round((uniqueDocsPlanned / myDocsCount) * 100) : 0
+  // FIX DE UX: Matemáticas con 1 decimal para que se vea el progreso mínimo
+  const efectividad = planeadasMes > 0 ? ((realizadasMes / planeadasMes) * 100).toFixed(1) : '0.0'
+  
+  // Usamos el doctorName como backup por si el ID fallara en registros viejos
+  const uniqueDocsPlanned = new Set(monthVisits.map(v => v.doctorId || v.doctorName)).size
+  const cobertura = myDocsCount > 0 ? ((uniqueDocsPlanned / myDocsCount) * 100).toFixed(1) : '0.0'
 
   if (loading) return <div className="ml-64 p-20 text-center font-black text-gray-300 animate-pulse">SINCRONIZANDO...</div>
 
