@@ -2,9 +2,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen, Lock } from 'lucide-react';
+import { LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen, Lock, UserCircle } from 'lucide-react';
+
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { name: 'Mi Perfil', href: '/perfil', icon: UserCircle },
   { name: 'Centros Médicos', href: '/medical-centers', icon: Building2 },
   { name: 'Visitas', href: '/visits', icon: ClipboardList },
   { name: 'Itinerario', href: '/itinerary', icon: CalendarDays },
@@ -13,6 +15,7 @@ const menuItems = [
   { name: 'E-Learning', href: '/elearning', icon: Lock },
   { name: 'Evaluación', href: '/evaluacion', icon: Lock },
 ];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { logout } = useAuth();
