@@ -6,7 +6,6 @@ import { LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, Log
 
 const menuItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Mi Perfil', href: '/perfil', icon: UserCircle },
   { name: 'Centros Médicos', href: '/medical-centers', icon: Building2 },
   { name: 'Visitas', href: '/visits', icon: ClipboardList },
   { name: 'Itinerario', href: '/itinerary', icon: CalendarDays },
@@ -14,6 +13,7 @@ const menuItems = [
   { name: 'Labores Visitador', href: '/labores', icon: BookOpen },
   { name: 'E-Learning', href: '/elearning', icon: Lock },
   { name: 'Evaluación', href: '/evaluacion', icon: Lock },
+  { name: 'Mi Perfil', href: '/perfil', icon: UserCircle },
 ];
 
 export default function Sidebar() {
