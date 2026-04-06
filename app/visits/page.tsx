@@ -2,8 +2,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc } from 'firebase/firestore'
-import { Search, User, Filter, Calendar, Zap, Loader2, X, Lock, Pencil } from 'lucide-react'
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
+import { Search, User, Filter, Calendar, Zap, Loader2, X, Lock, Pencil, Trash2 } from 'lucide-react'
 
 export default function PlanningPage() {
   const { user, selectedRep, setSelectedRep } = useAuthStore()
@@ -95,6 +95,29 @@ export default function PlanningPage() {
     } catch (e) { alert('Error al procesar') } finally { setSaving(false) }
   }
 
+  // NUEVA FUNCIÓN: Eliminar Cita
+  const handleDeleteVisit = async () => {
+    if (!editingId) return;
+    
+    const confirmDelete = window.confirm('¿Estás seguro de que deseas eliminar esta cita planeada? Esta acción no se puede deshacer.');
+    if (!confirmDelete) return;
+
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'planned_visits', editingId));
+      // Actualizamos la pantalla instantáneamente
+      setPlannedVisits(prev => prev.filter(v => v.id !== editingId));
+      alert('Cita eliminada correctamente');
+      resetForm();
+      fetchData();
+    } catch (e) {
+      alert('Error al eliminar la cita');
+      console.error(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const startEdit = (visit: any) => {
     setEditingId(visit.id)
     setSelectedDoctor({ id: visit.doctorId, name: visit.doctorName, ...visit.doctorDetails })
@@ -117,7 +140,6 @@ export default function PlanningPage() {
     return base.sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, user, selectedRep, isAdmin]);
 
-  // FIX: Buscador sin límite de resultados
   const myDocsFiltered = useMemo(() => {
     if (!searchTerm || selectedDoctor) return [];
     const term = searchTerm.toLowerCase();
@@ -130,7 +152,7 @@ export default function PlanningPage() {
         (d.category && d.category.toLowerCase().includes(term)) ||
         (d.type && d.type.toLowerCase().includes(term))
       );
-    }); // <-- Eliminamos el .slice(0, 5)
+    });
   }, [myFullDocsList, searchTerm, selectedDoctor]);
 
   const getVisitsForDay = (day: number) => {
@@ -209,7 +231,6 @@ export default function PlanningPage() {
                   <input type="text" placeholder="Ej: Cali, Pediatra, A..." className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-14 pr-6 text-sm font-bold focus:ring-2 focus:ring-blue-600" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 {searchTerm && (
-                  /* FIX: Contenedor con altura máxima (max-h-64) y scroll vertical (overflow-y-auto) */
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-2">
                     {myDocsFiltered.map((doc:any) => (
                       <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-2xl transition-all font-bold uppercase text-xs text-blue-900">
@@ -248,9 +269,20 @@ export default function PlanningPage() {
                     </select>
                   </div>
                 </div>
-                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}>
-                  {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
-                </button>
+                
+                {/* NUEVO: Contenedor para ambos botones */}
+                <div className="flex flex-col gap-3">
+                  <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}>
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
+                  </button>
+                  
+                  {editingId && (
+                    <button disabled={saving} onClick={handleDeleteVisit} className="w-full text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 text-[10px] font-black uppercase tracking-[0.2em] py-4 rounded-2xl active:scale-95 transition-all flex items-center justify-center gap-2 shadow-sm">
+                      {saving ? <Loader2 className="animate-spin" size={18} /> : <><Trash2 size={16} /> Eliminar Cita</>}
+                    </button>
+                  )}
+                </div>
+
               </div>
             )}
           </div>
