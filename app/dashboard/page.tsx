@@ -19,12 +19,10 @@ export default function DashboardPage() {
     const loadDashboardData = async () => {
       setLoading(true)
       try {
-        // 1. Cargar Médicos
         const resDocs = await fetch('/api/doctors')
         const dataDocs = await resDocs.json()
         setDoctors(Array.isArray(dataDocs) ? dataDocs : [])
 
-        // 2. Cargar Visitas (Sin orderBy para evitar error de Firebase)
         const visitsRef = collection(db, 'planned_visits')
         let q;
         if (isAdmin && selectedRep === 'Todos') {
@@ -41,7 +39,6 @@ export default function DashboardPage() {
         const querySnapshot = await getDocs(q)
         let allVisits = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
         
-        // Ordenar en memoria
         allVisits.sort((a: any, b: any) => (a.visitDate || '').localeCompare(b.visitDate || ''))
         setPlannedVisits(allVisits)
 
@@ -80,7 +77,6 @@ export default function DashboardPage() {
     }
   }, [doctors, user, isAdmin, selectedRep])
 
-  // Lógicas de KPIs y Fechas
   const todayStr = new Date().toISOString().slice(0, 10)
   
   const monthVisits = useMemo(() => {
