@@ -16,6 +16,8 @@ export default function PlanningPage() {
   const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
   
   const [visitDate, setVisitDate] = useState('2026-04-01')
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
   const [status, setStatus] = useState('Planeada')
   const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -76,6 +78,8 @@ export default function PlanningPage() {
           address: selectedDoctor.address || 'Principal'
         },
         visitDate,
+        startTime,
+        endTime,
         status,
         updatedAt: Timestamp.now()
       };
@@ -120,6 +124,8 @@ export default function PlanningPage() {
     setEditingId(visit.id)
     setSelectedDoctor({ id: visit.doctorId, name: visit.doctorName, ...visit.doctorDetails })
     setVisitDate(visit.visitDate)
+    setStartTime(visit.startTime || '')
+    setEndTime(visit.endTime || '')
     setStatus(visit.status)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -129,14 +135,14 @@ export default function PlanningPage() {
     setSelectedDoctor(null)
     setSearchTerm('')
     setVisitDate('2026-04-01')
+    setStartTime('')
+    setEndTime('')
   }
 
-  // REGLA DE NEGOCIO CORREGIDA: Blindaje por Nombre para ocultar médicos agendados
   const myFullDocsList = useMemo(() => {
     const targetEmail = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim();
     if (!targetEmail && isAdmin) return [];
     
-    // Usamos el NOMBRE exacto. Evita fallos si un ID de BD choca con el de Firebase.
     const plannedNames = new Set(
       plannedVisits.map(v => String(v.doctorName || '').toLowerCase().trim())
     );
@@ -267,7 +273,8 @@ export default function PlanningPage() {
                   </div>
                   <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
                 </div>
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <label className="text-[10px] font-black text-gray-400 uppercase block mb-2 ml-1">Fecha</label>
                     <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
@@ -279,6 +286,18 @@ export default function PlanningPage() {
                       <option value="Realizada">Realizada</option>
                       <option value="Reagendada">Reagendada</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* NUEVOS CAMPOS: Hora Inicio y Hora Fin */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase block mb-2 ml-1">H. Inicio</label>
+                    <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase block mb-2 ml-1">H. Fin</label>
+                    <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
                   </div>
                 </div>
                 
@@ -308,9 +327,17 @@ export default function PlanningPage() {
                   <span className={`text-[11px] font-black mb-2 ${visits.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / 04</span>
                   <div className="flex flex-col gap-1.5">
                     {visits.map((v, idx) => (
-                      <button key={idx} onClick={() => startEdit(v)} className="group bg-blue-600 text-white text-[9px] lg:text-[7.5px] font-black uppercase p-1.5 lg:p-1 rounded-lg shadow-sm text-left px-2 leading-tight flex justify-between items-center hover:bg-blue-700 transition-all">
-                        <span className="truncate flex-1">{v.doctorName}</span>
-                        <Pencil size={8} className="opacity-0 group-hover:opacity-100 ml-1" />
+                      <button key={idx} onClick={() => startEdit(v)} className="group bg-blue-600 text-white p-1.5 lg:p-1.5 rounded-lg shadow-sm text-left px-2 leading-tight flex justify-between items-center hover:bg-blue-700 transition-all">
+                        <div className="flex flex-col truncate flex-1">
+                          <span className="text-[9px] lg:text-[7.5px] font-black uppercase truncate">{v.doctorName}</span>
+                          {/* MOSTRAR HORA EN EL CALENDARIO SI EXISTE */}
+                          {(v.startTime || v.endTime) && (
+                            <span className="text-[6.5px] font-medium text-blue-200 mt-0.5">
+                              {v.startTime || '--:--'} {v.endTime ? `- ${v.endTime}` : ''}
+                            </span>
+                          )}
+                        </div>
+                        <Pencil size={8} className="opacity-0 group-hover:opacity-100 ml-1 flex-shrink-0" />
                       </button>
                     ))}
                   </div>
