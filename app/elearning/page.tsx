@@ -2,10 +2,8 @@
 import React from 'react';
 import { GraduationCap, Lock } from 'lucide-react';
 import dynamic from 'next/dynamic';
-
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
-import animationData from '@/public/animations/Animation - 1721694045894.json';
-
+import animationData from '@/public/animations/fomo.json';
 export default function ELearningPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-6 text-center bg-gray-50">
