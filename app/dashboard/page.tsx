@@ -1,27 +1,62 @@
 'use client'
 import { useAuthStore } from '@/lib/store'
 import { useEffect, useState, useMemo } from 'react'
-import { CalendarDays, Users2, BarChart3, AlertCircle, Zap, Filter } from 'lucide-react'
+import { db } from '@/lib/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { CalendarDays, Users2, BarChart3, AlertCircle, Zap, Filter, CheckCircle2, Clock } from 'lucide-react'
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
   const [doctors, setDoctors] = useState<any[]>([])
+  const [plannedVisits, setPlannedVisits] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // NUEVO: Estado para el menú desplegable del Administrador
   const [selectedRep, setSelectedRep] = useState('Todos')
 
-  useEffect(() => {
-    fetch('/api/doctors').then(res => res.json()).then(data => {
-      setDoctors(Array.isArray(data) ? data : [])
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
-
-  // NUEVO: El "Detector de Dios"
   const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
 
-  // NUEVO: El extractor de correos automáticos (solo funciona si es Admin)
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      setLoading(true)
+      try {
+        // 1. Cargar Médicos
+        const resDocs = await fetch('/api/doctors')
+        const dataDocs = await resDocs.json()
+        setDoctors(Array.isArray(dataDocs) ? dataDocs : [])
+
+        // 2. Cargar Visitas (Sin orderBy para evitar error de Firebase)
+        const visitsRef = collection(db, 'planned_visits')
+        let q;
+        if (isAdmin && selectedRep === 'Todos') {
+          q = query(visitsRef); 
+        } else {
+          const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim();
+          if(targetEmail){
+             q = query(visitsRef, where('userEmail', '==', targetEmail));
+          } else {
+             q = query(visitsRef);
+          }
+        }
+
+        const querySnapshot = await getDocs(q)
+        let allVisits = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+        
+        // Ordenar en memoria
+        allVisits.sort((a: any, b: any) => (a.visitDate || '').localeCompare(b.visitDate || ''))
+        setPlannedVisits(allVisits)
+
+      } catch (error) {
+        console.error("Error cargando dashboard:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (user) {
+      loadDashboardData()
+    }
+  }, [user, selectedRep, isAdmin])
+
   const repsList = useMemo(() => {
     if (!isAdmin) return []
     const uniqueEmails = new Set(
@@ -32,20 +67,33 @@ export default function DashboardPage() {
     return Array.from(uniqueEmails)
   }, [doctors, isAdmin])
 
-  // MODIFICADO: Matemáticas que entienden el "Modo Gerente"
   const myDocsCount = useMemo(() => {
     if (isAdmin) {
       if (selectedRep === 'Todos') {
-        return doctors.length // Muestra los 8,000+ médicos de toda la empresa
+        return doctors.length 
       } else {
         return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === selectedRep).length
       }
     } else {
-      // Si no es admin, lógica normal de embudo
       const email = user?.email?.toLowerCase().trim()
       return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email).length
     }
   }, [doctors, user, isAdmin, selectedRep])
+
+  // Lógicas de KPIs y Fechas
+  const todayStr = new Date().toISOString().slice(0, 10)
+  
+  const monthVisits = useMemo(() => {
+    return plannedVisits.filter(v => v.visitDate?.includes('-04-'))
+  }, [plannedVisits])
+
+  const todayVisits = useMemo(() => {
+    return plannedVisits.filter(v => v.visitDate === todayStr)
+  }, [plannedVisits, todayStr])
+
+  const planeadasMes = monthVisits.length
+  const realizadasMes = monthVisits.filter(v => v.status === 'Realizada').length
+  const efectividad = planeadasMes > 0 ? Math.round((realizadasMes / planeadasMes) * 100) : 0
 
   if (loading) return <div className="ml-64 p-20 text-center font-black text-gray-300 animate-pulse">SINCRONIZANDO...</div>
 
@@ -59,7 +107,6 @@ export default function DashboardPage() {
         
         <div className="flex items-center gap-3 w-full md:w-auto">
           
-          {/* NUEVO: Dropdown de Administrador (Solo visible para la gerencia) */}
           {isAdmin && (
             <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 flex-1 md:flex-none">
               <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
@@ -81,20 +128,19 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* El cuadro original de Visitas Hoy */}
           <div className="bg-white p-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white"><Zap size={20}/></div>
-            <div><p className="text-[10px] font-black text-gray-400 uppercase leading-none">Visitas Hoy</p><p className="text-2xl font-black text-gray-900">0</p></div>
+            <div><p className="text-[10px] font-black text-gray-400 uppercase leading-none">Visitas Hoy</p><p className="text-2xl font-black text-gray-900">{todayVisits.length}</p></div>
           </div>
         </div>
       </header>
       
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6 mb-12">
         {[
-          { label: 'Planeadas mes', val: '0', icon: CalendarDays, color: 'text-blue-600', bg: 'bg-blue-50' },
+          { label: 'Planeadas mes', val: planeadasMes, icon: CalendarDays, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: 'Cobertura', val: '0%', icon: Users2, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Efectividad', val: '0%', icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
-          { label: 'No reportadas', val: '0', icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50' },
+          { label: 'Efectividad', val: `${efectividad}%`, icon: BarChart3, color: 'text-purple-600', bg: 'bg-purple-50' },
+          { label: 'No reportadas', val: planeadasMes - realizadasMes, icon: AlertCircle, color: 'text-orange-600', bg: 'bg-orange-50' },
         ].map((kpi, i) => (
           <div key={i} className="bg-white p-5 rounded-[30px] border border-gray-100 flex flex-col lg:flex-row justify-between items-start lg:items-center shadow-sm">
             <div><p className="text-[9px] lg:text-[11px] font-bold text-gray-400 uppercase mb-1">{kpi.label}</p><p className="text-xl lg:text-3xl font-black text-gray-900">{kpi.val}</p></div>
@@ -106,8 +152,31 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm min-h-[300px]">
           <h3 className="text-2xl font-black mb-8 uppercase tracking-tighter flex items-center gap-3">Agenda del día</h3>
-          <p className="text-gray-400 font-medium text-sm italic">No hay visitas planeadas para hoy.</p>
+          
+          {todayVisits.length === 0 ? (
+            <p className="text-gray-400 font-medium text-sm italic">No hay visitas planeadas para hoy.</p>
+          ) : (
+            <div className="space-y-4">
+              {todayVisits.map((v, idx) => (
+                <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-3xl border border-gray-100">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-sm ${v.status === 'Realizada' ? 'bg-green-500' : 'bg-blue-600'}`}>
+                      {v.status === 'Realizada' ? <CheckCircle2 size={24}/> : <Clock size={24}/>}
+                    </div>
+                    <div>
+                      <p className="font-black text-gray-900 uppercase">{v.doctorName}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase">{v.doctorDetails?.specialty || 'Especialista'} | {v.doctorDetails?.city || 'Ciudad'}</p>
+                    </div>
+                  </div>
+                  <span className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider ${v.status === 'Realizada' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+                    {v.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+        
         <div className="bg-white p-8 rounded-[40px] border border-gray-100 shadow-sm">
           <h3 className="text-xl font-black mb-1 uppercase">Cartera</h3>
           <div className="text-center p-6 bg-blue-50 rounded-3xl border border-blue-100 my-6">
