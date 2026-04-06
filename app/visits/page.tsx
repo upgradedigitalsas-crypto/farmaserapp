@@ -68,7 +68,7 @@ export default function PlanningPage() {
       const newVisitData = {
         userEmail: targetEmail,
         doctorName: selectedDoctor.name,
-        doctorId: selectedDoctor.id,
+        doctorId: selectedDoctor.id || null,
         doctorDetails: {
           category: selectedDoctor.category || 'A',
           specialty: selectedDoctor.specialty,
@@ -131,18 +131,21 @@ export default function PlanningPage() {
     setVisitDate('2026-04-01')
   }
 
-  // REGLA DE NEGOCIO INYECTADA: Ocultar si ya está planeado en el mes
+  // REGLA DE NEGOCIO CORREGIDA: Blindaje por Nombre para ocultar médicos agendados
   const myFullDocsList = useMemo(() => {
     const targetEmail = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim();
     if (!targetEmail && isAdmin) return [];
     
-    // 1. Identificamos todos los médicos que ya tienen cita este mes
-    const plannedDoctorIds = new Set(plannedVisits.map(v => v.doctorId));
+    // Usamos el NOMBRE exacto. Evita fallos si un ID de BD choca con el de Firebase.
+    const plannedNames = new Set(
+      plannedVisits.map(v => String(v.doctorName || '').toLowerCase().trim())
+    );
 
-    // 2. Filtramos la cartera para mostrar SOLO los no agendados
     const base = doctors.filter((d: any) => {
       const isAssignedToMe = String(d.assignedTo || '').toLowerCase().trim() === targetEmail;
-      const isNotPlannedYet = !plannedDoctorIds.has(d.id);
+      const docName = String(d.name || '').toLowerCase().trim();
+      const isNotPlannedYet = !plannedNames.has(docName);
+      
       return isAssignedToMe && isNotPlannedYet;
     });
 
