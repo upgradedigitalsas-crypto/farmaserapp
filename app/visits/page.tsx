@@ -110,14 +110,19 @@ export default function PlanningPage() {
     setVisitDate('2026-04-01')
   }
 
-  const myDocsFiltered = useMemo(() => {
+  // Lista COMPLETA ordenada alfabéticamente para el nuevo Dropdown
+  const myFullDocsList = useMemo(() => {
     const targetEmail = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim();
     if (!targetEmail && isAdmin) return [];
+    const base = doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === targetEmail);
+    return base.sort((a: any, b: any) => a.name.localeCompare(b.name));
+  }, [doctors, user, selectedRep, isAdmin]);
 
-    const base = doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === targetEmail)
-    if (!searchTerm || selectedDoctor) return []
-    return base.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 5)
-  }, [doctors, user, searchTerm, selectedDoctor, selectedRep, isAdmin])
+  // Lista filtrada para el Buscador original
+  const myDocsFiltered = useMemo(() => {
+    if (!searchTerm || selectedDoctor) return [];
+    return myFullDocsList.filter((d: any) => d.name.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 5);
+  }, [myFullDocsList, searchTerm, selectedDoctor]);
 
   const getVisitsForDay = (day: number) => {
     const currentDayStr = `2026-04-${day.toString().padStart(2, '0')}`
@@ -153,16 +158,56 @@ export default function PlanningPage() {
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <label className="text-[10px] font-black uppercase text-gray-400 mb-4 block ml-2">Buscar médico en cartera de {isAdmin ? selectedRep : 'mi usuario'}</label>
+                
+                {/* NUEVO: Dropdown Selector List */}
+                <label className="text-[10px] font-black uppercase text-gray-400 mb-3 block ml-2">Desplegar lista de mi cartera</label>
+                <div className="mb-6 relative">
+                  <select
+                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 px-5 text-sm font-bold text-gray-700 focus:ring-2 focus:ring-blue-600 cursor-pointer appearance-none"
+                    value={selectedDoctor?.id || ""}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      if (!selectedId) {
+                        setSelectedDoctor(null);
+                        setSearchTerm('');
+                        return;
+                      }
+                      const doc = myFullDocsList.find((d:any) => d.id === selectedId);
+                      if (doc) {
+                        setSelectedDoctor(doc);
+                        setSearchTerm(doc.name);
+                      }
+                    }}
+                  >
+                    <option value="">-- Toca aquí para ver todos los médicos y droguerías --</option>
+                    {myFullDocsList.map((doc:any) => (
+                      <option key={doc.id} value={doc.id}>{doc.name} — {doc.city}</option>
+                    ))}
+                  </select>
+                  {/* Flecha personalizada para el select */}
+                  <div className="pointer-events-none absolute inset-y-0 right-5 flex items-center px-2 text-gray-500">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-4 mb-6">
+                  <div className="h-px bg-gray-100 flex-1"></div>
+                  <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">Ó Busca por Nombre</span>
+                  <div className="h-px bg-gray-100 flex-1"></div>
+                </div>
+
+                {/* BUSCADOR ORIGINAL */}
+                <label className="text-[10px] font-black uppercase text-gray-400 mb-3 block ml-2">Escribir nombre</label>
                 <div className="relative">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Escribe nombre del médico..." className="w-full bg-gray-50 border-none rounded-2xl py-5 pl-14 pr-6 text-sm font-bold focus:ring-2 focus:ring-blue-600" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Escribe el nombre aquí..." className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-14 pr-6 text-sm font-bold focus:ring-2 focus:ring-blue-600" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 {searchTerm && (
                   <div className="mt-4 space-y-2">
-                    {myDocsFiltered.map((doc) => (
-                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-gray-50 hover:bg-blue-50 rounded-2xl transition-all font-bold uppercase text-xs">{doc.name} — {doc.city}</button>
+                    {myDocsFiltered.map((doc:any) => (
+                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-blue-50 border border-blue-100 hover:bg-blue-100 rounded-2xl transition-all font-bold uppercase text-xs text-blue-900">{doc.name} — {doc.city}</button>
                     ))}
+                    {myDocsFiltered.length === 0 && <p className="p-4 text-xs font-bold text-gray-400 text-center">No se encontraron resultados</p>}
                   </div>
                 )}
               </div>
