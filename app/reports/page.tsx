@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
-import { collection, query, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
 import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, Filter, Download } from 'lucide-react'
 
 const getFingerprintLocation = () => {
@@ -49,18 +49,16 @@ export default function ReportsPage() {
     return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
   }, [doctors])
 
-  // 🛡️ LÓGICA DE AUDITORÍA REFORZADA (JS FILTERING)
+  // 🛡️ AUDITORÍA PARA ADMIN (Siempre tabla, filtra por visitador localmente para evitar fallos)
   useEffect(() => {
     if (!isAdmin) return;
     const fetchAudit = async () => {
       setLoadingAudit(true)
       try {
-        // Obtenemos todos los reportes de una vez para evitar errores de índice en Firebase
         const q = query(collection(db, 'visit_reports'), orderBy('reportedAt', 'desc'));
         const snap = await getDocs(q);
         const allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         
-        // Filtramos aquí mismo para asegurar que siempre haya datos si el email coincide
         if (selectedRep === 'Todos') {
           setAuditReports(allData);
         } else {
@@ -74,7 +72,7 @@ export default function ReportsPage() {
     fetchAudit()
   }, [isAdmin, selectedRep])
 
-  // Lógica de visitas para visitador (Tarjetas)
+  // REPORTE PARA VISITADORES (Tarjetas)
   useEffect(() => {
     if (isAdmin) return;
     const fetchToday = async () => {
@@ -93,15 +91,14 @@ export default function ReportsPage() {
     setSaving(true)
     try {
       const locationFingerprint = await getFingerprintLocation()
-      const targetEmail = user?.email?.toLowerCase()
       await updateDoc(doc(db, 'planned_visits', selectedVisit.id), { status: 'Realizada', reportedAt: Timestamp.now() })
       const reportData: any = {
-        visitId: selectedVisit.id, userEmail: targetEmail, doctorName: selectedVisit.doctorName,
+        visitId: selectedVisit.id, userEmail: user?.email?.toLowerCase(), doctorName: selectedVisit.doctorName,
         observations: obs, samples, reportedAt: Timestamp.now(), status
       };
       if (locationFingerprint) reportData.locationFingerprint = locationFingerprint;
       await addDoc(collection(db, 'visit_reports'), reportData)
-      alert('Reporte guardado'); setSelectedVisit(null); setObs(''); setSamples([]);
+      alert('¡Reporte guardado!'); setSelectedVisit(null); setObs(''); setSamples([]);
     } catch (e) { alert('Error') } finally { setSaving(false) }
   }
 
@@ -126,14 +123,14 @@ export default function ReportsPage() {
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">
             {isAdmin ? 'Auditoría Mensual' : 'Reportar Cita'}
           </h1>
-          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2 italic">Historial del mes: 2026-04</p>
+          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2 italic italic">GESTIÓN 2026: {selectedRep}</p>
         </div>
 
         {isAdmin && (
           <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
             <Filter size={20} className="text-indigo-600 ml-2"/>
             <div className="pr-3">
-              <p className="text-[9px] font-black text-gray-300 uppercase leading-none mb-1">Filtrar Visitador</p>
+              <p className="text-[9px] font-black text-gray-300 uppercase leading-none mb-1">Filtrar Base</p>
               <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold text-gray-900 bg-transparent border-none outline-none pr-4">
                 <option value="Todos">Toda la Empresa</option>
                 {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
@@ -144,14 +141,12 @@ export default function ReportsPage() {
       </header>
 
       {isAdmin ? (
-        /* 📊 VISTA SUPER ADMIN: TABLA PROFESIONAL */
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
           <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-white">
              <div className="flex items-center gap-3">
                <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
-               <h2 className="font-black uppercase text-gray-900 text-sm tracking-tighter">Historial de Visitas Realizadas</h2>
+               <h2 className="font-black uppercase text-gray-900 text-sm tracking-tighter italic">Tabla de Auditoría de Campo</h2>
              </div>
-             {/* 🟢 BOTÓN VERDE RESTAURADO */}
              <button onClick={exportCSV} className="bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-6 py-3 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-green-100">
                 <Download size={16}/> Descargar Excel
              </button>
@@ -170,13 +165,13 @@ export default function ReportsPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {loadingAudit ? (
-                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold animate-pulse italic uppercase">Sincronizando registros...</td></tr>
+                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold animate-pulse italic uppercase">Consultando registros...</td></tr>
                 ) : auditReports.length === 0 ? (
                   <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold uppercase text-xs">Sin reportes para {selectedRep}</td></tr>
                 ) : auditReports.map((r) => (
                   <tr key={r.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="px-8 py-5 text-[10px] font-bold text-gray-400 whitespace-nowrap">{r.reportedAt?.toDate().toLocaleDateString()}</td>
-                    <td className="px-8 py-5 text-xs font-black text-blue-600 italic">{r.userEmail}</td>
+                    <td className="px-8 py-5 text-xs font-black text-blue-600 italic underline decoration-blue-100">{r.userEmail}</td>
                     <td className="px-8 py-5 text-xs font-black text-gray-900 uppercase">{r.doctorName}</td>
                     <td className="px-8 py-5 text-center">
                       <span className="bg-green-100 text-green-700 text-[9px] font-black px-3 py-1 rounded-lg uppercase">REALIZADA</span>
@@ -192,7 +187,6 @@ export default function ReportsPage() {
           </div>
         </div>
       ) : (
-        /* VISTA VISITADOR MANTENIDA */
         <div className="max-w-[900px]">
            {!selectedVisit ? (
              <div className="space-y-4">
