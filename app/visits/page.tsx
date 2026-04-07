@@ -43,20 +43,13 @@ export default function PlanningPage() {
       const resDocs = await fetch('/api/doctors')
       const dataDocs = await resDocs.json()
       setDoctors(Array.isArray(dataDocs) ? dataDocs : [])
-
-      let q;
-      const visitsRef = collection(db, 'planned_visits');
-      if (isAdmin && selectedRep === 'Todos') {
-        q = query(visitsRef); 
-      } else {
-        const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim();
-        q = query(visitsRef, where('userEmail', '==', targetEmail));
-      }
-
-      const querySnapshot = await getDocs(q)
-      let allVisits = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      allVisits.sort((a: any, b: any) => (a.visitDate || '').localeCompare(b.visitDate || ''));
-      setPlannedVisits(allVisits.filter((v: any) => v.visitDate?.includes('-04-')));
+      const visitsRef = collection(db, 'planned_visits')
+      let q = isAdmin && selectedRep === 'Todos' 
+        ? query(visitsRef) 
+        : query(visitsRef, where('userEmail', '==', isAdmin ? selectedRep : user?.email?.toLowerCase().trim()))
+      const snap = await getDocs(q)
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      setPlannedVisits(all.filter((v: any) => v.visitDate?.includes('-04-')))
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
@@ -71,10 +64,9 @@ export default function PlanningPage() {
     if (!selectedDoctor || !visitDate) return alert('Datos incompletos')
     setSaving(true)
     try {
-      const locationFingerprint = await getFingerprintLocation();
-      const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim();
-      
-      const newVisitData = {
+      const locationFingerprint = await getFingerprintLocation()
+      const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim()
+      const data = {
         userEmail: targetEmail,
         doctorName: selectedDoctor.name,
         doctorId: selectedDoctor.id || null,
@@ -84,84 +76,71 @@ export default function PlanningPage() {
           city: selectedDoctor.city,
           address: selectedDoctor.address || 'Principal'
         },
-        visitDate,
-        startTime,
-        endTime,
-        status,
+        visitDate, startTime, endTime, status,
         updatedAt: Timestamp.now(),
         ...(locationFingerprint && { locationFingerprint })
-      };
-
-      if (editingId) {
-        await updateDoc(doc(db, 'planned_visits', editingId), newVisitData)
-        alert('Actualizada')
-      } else {
-        await addDoc(collection(db, 'planned_visits'), { ...newVisitData, createdAt: Timestamp.now() })
-        alert('Agendada')
       }
-      resetForm(); fetchData();
+      if (editingId) {
+        await updateDoc(doc(db, 'planned_visits', editingId), data)
+      } else {
+        await addDoc(collection(db, 'planned_visits'), { ...data, createdAt: Timestamp.now() })
+      }
+      resetForm(); fetchData(); alert('Guardado con éxito')
     } catch (e) { alert('Error al guardar') } finally { setSaving(false) }
   }
 
   const handleDeleteVisit = async () => {
-    if (!editingId || !window.confirm('¿Eliminar cita?')) return;
-    setSaving(true);
+    if (!editingId || !window.confirm('¿Eliminar?')) return
+    setSaving(true)
     try {
-      await deleteDoc(doc(db, 'planned_visits', editingId));
-      alert('Cita eliminada'); resetForm(); fetchData();
-    } catch (e) { alert('Error al eliminar'); } finally { setSaving(false); }
+      await deleteDoc(doc(db, 'planned_visits', editingId))
+      resetForm(); fetchData(); alert('Eliminado')
+    } catch (e) { alert('Error') } finally { setSaving(false) }
   }
 
   const startEdit = (visit: any) => {
-    setEditingId(visit.id);
-    setSelectedDoctor({ id: visit.doctorId, name: visit.doctorName, ...visit.doctorDetails });
-    setVisitDate(visit.visitDate); setStartTime(visit.startTime || '');
-    setEndTime(visit.endTime || ''); setStatus(visit.status);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setEditingId(visit.id)
+    setSelectedDoctor({ id: visit.doctorId, name: visit.doctorName, ...visit.doctorDetails })
+    setVisitDate(visit.visitDate); setStartTime(visit.startTime || ''); setEndTime(visit.endTime || ''); setStatus(visit.status)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const resetForm = () => {
-    setEditingId(null); setSelectedDoctor(null); setSearchTerm('');
-    setVisitDate('2026-04-01'); setStartTime(''); setEndTime('');
+    setEditingId(null); setSelectedDoctor(null); setSearchTerm(''); setVisitDate('2026-04-01'); setStartTime(''); setEndTime('')
   }
 
   const myFullDocsList = useMemo(() => {
-    const targetEmail = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim();
-    if (!targetEmail && isAdmin) return [];
-    const plannedNames = new Set(plannedVisits.map(v => String(v.doctorName || '').toLowerCase().trim()));
-    return doctors.filter((d: any) => {
-      const isAssigned = String(d.assignedTo || '').toLowerCase().trim() === targetEmail;
-      const isNotPlanned = !plannedNames.has(String(d.name || '').toLowerCase().trim());
-      return isAssigned && isNotPlanned;
-    }).sort((a: any, b: any) => a.name.localeCompare(b.name));
-  }, [doctors, user, selectedRep, isAdmin, plannedVisits]);
+    const email = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim()
+    if (!email && isAdmin) return []
+    const planned = new Set(plannedVisits.map(v => String(v.doctorName || '').toLowerCase().trim()))
+    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email && !planned.has(String(d.name || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name))
+  }, [doctors, user, selectedRep, isAdmin, plannedVisits])
 
   const myDocsFiltered = useMemo(() => {
-    if (!searchTerm || selectedDoctor) return [];
-    const term = searchTerm.toLowerCase();
-    return myFullDocsList.filter((d: any) => d.name?.toLowerCase().includes(term) || d.city?.toLowerCase().includes(term));
-  }, [myFullDocsList, searchTerm, selectedDoctor]);
-
-  const getVisitsForDay = (day: number) => {
-    const currentDayStr = `2026-04-${day.toString().padStart(2, '0')}`
-    return plannedVisits.filter(v => v.visitDate === currentDayStr)
-  }
+    if (!searchTerm || selectedDoctor) return []
+    const t = searchTerm.toLowerCase()
+    return myFullDocsList.filter((d: any) => d.name?.toLowerCase().includes(t) || d.city?.toLowerCase().includes(t))
+  }, [myFullDocsList, searchTerm, selectedDoctor])
 
   const days = Array.from({length: 30}, (_, i) => i + 1)
+  const getVisitsForDay = (day: number) => {
+    const dStr = `2026-04-${day.toString().padStart(2, '0')}`
+    return plannedVisits.filter(v => v.visitDate === dStr)
+  }
 
   return (
     <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
       <header className="flex flex-col md:flex-row justify-between mb-10 gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">Planeación</h1>
-          <p className="text-gray-500 font-medium">Abril 2026 — Gestión de agenda</p>
+          <p className="text-gray-500 font-medium">Abril 2026</p>
         </div>
         {isAdmin && (
-          <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+          <div className="bg-white p-2 rounded-2xl shadow-sm border flex items-center gap-3">
             <Filter size={20} className="text-indigo-600 ml-2"/>
-            <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold bg-transparent border-none outline-none cursor-pointer">
+            <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold bg-transparent outline-none">
               <option value="Todos">Toda la Empresa</option>
-              {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
+              {repsList.map((e) => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
         )}
@@ -171,23 +150,22 @@ export default function PlanningPage() {
         {(!isAdmin || (isAdmin && selectedRep !== 'Todos')) && (
           <div className="w-full space-y-6">
             {!editingId && (
-              <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <label className="text-[10px] font-black uppercase text-gray-400 mb-3 block ml-2">Cartera Faltante</label>
-                <select className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
-                  const doc = myFullDocsList.find((d:any) => d.id === e.target.value);
-                  if (doc) { setSelectedDoctor(doc); setSearchTerm(doc.name); }
+              <div className="bg-white p-8 rounded-[40px] shadow-sm border">
+                <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
+                  const doc = myFullDocsList.find((d:any) => d.id === e.target.value)
+                  if (doc) { setSelectedDoctor(doc); setSearchTerm(doc.name) }
                 }}>
                   <option value="">-- Seleccionar Médico --</option>
                   {myFullDocsList.map((doc:any) => <option key={doc.id} value={doc.id}>{doc.name} — {doc.city}</option>)}
                 </select>
                 <div className="relative mt-6">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Buscar..." className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Buscar..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 {searchTerm && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
                     {myDocsFiltered.map((doc:any) => (
-                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-blue-50 border border-blue-100 rounded-2xl font-bold uppercase text-xs">
+                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name) }} className="w-full text-left p-4 bg-blue-50 rounded-2xl font-bold uppercase text-xs">
                         {doc.name} <span className="text-blue-500">— {doc.city}</span>
                       </button>
                     ))}
@@ -202,34 +180,30 @@ export default function PlanningPage() {
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
                     <div>
-                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{selectedDoctor.name}</h2>
+                      <h2 className="text-xl font-black text-gray-900 uppercase">{selectedDoctor.name}</h2>
                       <p className="text-[10px] font-bold text-gray-400 uppercase">{selectedDoctor.specialty} | {selectedDoctor.city}</p>
                     </div>
                   </div>
-                  <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
+                  <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full"><X size={16}/></button>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
-                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm">
+                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
+                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm">
                     <option value="Planeada">Planeada</option>
                     <option value="Realizada">Realizada</option>
                     <option value="Reagendada">Reagendada</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
-                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
+                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
+                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
                 </div>
-                <div className="flex flex-col gap-3">
-                  <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}>
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
-                  </button>
-                  {editingId && (
-                    <button disabled={saving} onClick={handleDeleteVisit} className="w-full text-red-600 bg-red-50 border border-red-200 text-[10px] font-black uppercase py-4 rounded-2xl flex items-center justify-center gap-2">
-                      <Trash2 size={16} /> Eliminar Cita
-                    </button>
-                  )}
-                </div>
+                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase py-5 rounded-2xl shadow-lg ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}>
+                  {saving ? <Loader2 className="animate-spin m-auto" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
+                </button>
+                {editingId && (
+                  <button onClick={handleDeleteVisit} className="w-full mt-3 text-red-600 bg-red-50 py-3 rounded-xl text-[10px] font-bold uppercase">Eliminar Cita</button>
+                )}
               </div>
             )}
           </div>
@@ -238,20 +212,16 @@ export default function PlanningPage() {
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
-              const visits = getVisitsForDay(d);
+              const vsts = getVisitsForDay(d)
               return (
-                <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visits.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
-                  <span className={`text-[11px] font-black mb-2 ${visits.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / 04</span>
-                  <div className="flex flex-col gap-1.5">
-                    {visits.map((v, idx) => (
-                      <button key={idx} onClick={() => startEdit(v)} className="group bg-blue-600 text-white p-1.5 rounded-lg text-left px-2 flex justify-between items-center hover:bg-blue-700">
-                        <div className="flex flex-col truncate flex-1">
-                          <span className="text-[9px] font-black uppercase truncate">{v.doctorName}</span>
-                        </div>
-                        <Pencil size={8} className="opacity-0 group-hover:opacity-100 flex-shrink-0" />
-                      </button>
-                    ))}
-                  </div>
+                <div key={d} className={`bg-white p-3 rounded-[30px] border min-h-[120px] flex flex-col ${vsts.length > 0 ? 'border-blue-500 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
+                  <span className={`text-[11px] font-black mb-2 ${vsts.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / 04</span>
+                  {vsts.map((v, i) => (
+                    <button key={i} onClick={() => startEdit(v)} className="bg-blue-600 text-white p-1.5 rounded-lg text-[9px] font-black uppercase truncate mb-1 flex justify-between items-center">
+                      <span className="truncate">{v.doctorName}</span>
+                      <Pencil size={8} className="ml-1" />
+                    </button>
+                  ))}
                 </div>
               )
             })}
