@@ -66,15 +66,14 @@ export default function PlanningPage() {
       const locationFingerprint = await getFingerprintLocation()
       const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim()
       
-      // Definimos el objeto de forma explícita para evitar el error de TypeScript
       const visitData: any = {
         userEmail: targetEmail,
         doctorName: selectedDoctor.name,
         doctorId: selectedDoctor.id || null,
         doctorDetails: {
           category: selectedDoctor.category || 'A',
-          specialty: selectedDoctor.specialty,
-          city: selectedDoctor.city,
+          specialty: selectedDoctor.specialty || '',
+          city: selectedDoctor.city || '',
           address: selectedDoctor.address || 'Principal'
         },
         visitDate,
@@ -84,7 +83,6 @@ export default function PlanningPage() {
         updatedAt: Timestamp.now()
       }
 
-      // Si existe la ubicación, la agregamos al objeto de forma segura
       if (locationFingerprint) {
         visitData.locationFingerprint = locationFingerprint;
       }
@@ -186,7 +184,11 @@ export default function PlanningPage() {
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
                     <div>
                       <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{selectedDoctor.name}</h2>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase">{selectedDoctor.specialty} | {selectedDoctor.city}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
+                        {selectedDoctor.category && <span className="text-blue-500">CAT: {selectedDoctor.category} • </span>}
+                        {selectedDoctor.specialty} • {selectedDoctor.city}
+                        {selectedDoctor.address && <span> • DIR: {selectedDoctor.address}</span>}
+                      </p>
                     </div>
                   </div>
                   <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
@@ -207,7 +209,7 @@ export default function PlanningPage() {
                   {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
                 </button>
                 {editingId && (
-                  <button onClick={handleDeleteVisit} className="w-full mt-3 text-red-600 bg-red-50 py-3 rounded-xl text-[10px] font-bold uppercase">Eliminar Cita</button>
+                  <button onClick={handleDeleteVisit} className="w-full mt-3 text-red-600 bg-red-50 py-3 rounded-xl text-[10px] font-bold uppercase hover:bg-red-100 transition-colors">Eliminar Cita</button>
                 )}
               </div>
             )}
