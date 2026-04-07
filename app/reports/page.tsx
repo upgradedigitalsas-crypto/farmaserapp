@@ -2,8 +2,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
-import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
-import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, AlertCircle, Filter, Download } from 'lucide-react'
+import { collection, query, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
+import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, Filter, Download } from 'lucide-react'
 
 const getFingerprintLocation = () => {
   return new Promise((resolve) => {
@@ -49,28 +49,32 @@ export default function ReportsPage() {
     return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
   }, [doctors])
 
-  // 1. AUDITORÍA (FIXED: Ahora carga "Todos" o el "Visitador Seleccionado")
+  // 🛡️ LÓGICA DE AUDITORÍA REFORZADA (JS FILTERING)
   useEffect(() => {
     if (!isAdmin) return;
     const fetchAudit = async () => {
       setLoadingAudit(true)
       try {
-        const reportsRef = collection(db, 'visit_reports');
-        let q;
-        if (selectedRep === 'Todos') {
-          q = query(reportsRef, orderBy('reportedAt', 'desc'));
-        } else {
-          // Filtramos por el email seleccionado
-          q = query(reportsRef, where('userEmail', '==', selectedRep.toLowerCase().trim()), orderBy('reportedAt', 'desc'));
-        }
+        // Obtenemos todos los reportes de una vez para evitar errores de índice en Firebase
+        const q = query(collection(db, 'visit_reports'), orderBy('reportedAt', 'desc'));
         const snap = await getDocs(q);
-        setAuditReports(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) { console.error("Error filtrando:", e) } finally { setLoadingAudit(false) }
+        const allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        // Filtramos aquí mismo para asegurar que siempre haya datos si el email coincide
+        if (selectedRep === 'Todos') {
+          setAuditReports(allData);
+        } else {
+          const filtered = allData.filter((r: any) => 
+            String(r.userEmail || '').toLowerCase().trim() === selectedRep.toLowerCase().trim()
+          );
+          setAuditReports(filtered);
+        }
+      } catch (e) { console.error("Error auditoría:", e) } finally { setLoadingAudit(false) }
     }
     fetchAudit()
   }, [isAdmin, selectedRep])
 
-  // 2. REPORTE DIARIO (PARA VISITADORES)
+  // Lógica de visitas para visitador (Tarjetas)
   useEffect(() => {
     if (isAdmin) return;
     const fetchToday = async () => {
@@ -89,14 +93,15 @@ export default function ReportsPage() {
     setSaving(true)
     try {
       const locationFingerprint = await getFingerprintLocation()
+      const targetEmail = user?.email?.toLowerCase()
       await updateDoc(doc(db, 'planned_visits', selectedVisit.id), { status: 'Realizada', reportedAt: Timestamp.now() })
       const reportData: any = {
-        visitId: selectedVisit.id, userEmail: user?.email?.toLowerCase(), doctorName: selectedVisit.doctorName,
+        visitId: selectedVisit.id, userEmail: targetEmail, doctorName: selectedVisit.doctorName,
         observations: obs, samples, reportedAt: Timestamp.now(), status
       };
       if (locationFingerprint) reportData.locationFingerprint = locationFingerprint;
       await addDoc(collection(db, 'visit_reports'), reportData)
-      alert('¡Reporte guardado!'); setSelectedVisit(null); setObs(''); setSamples([]);
+      alert('Reporte guardado'); setSelectedVisit(null); setObs(''); setSamples([]);
     } catch (e) { alert('Error') } finally { setSaving(false) }
   }
 
@@ -128,7 +133,7 @@ export default function ReportsPage() {
           <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
             <Filter size={20} className="text-indigo-600 ml-2"/>
             <div className="pr-3">
-              <p className="text-[9px] font-black text-gray-300 uppercase leading-none mb-1">Filtrar Base</p>
+              <p className="text-[9px] font-black text-gray-300 uppercase leading-none mb-1">Filtrar Visitador</p>
               <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold text-gray-900 bg-transparent border-none outline-none pr-4">
                 <option value="Todos">Toda la Empresa</option>
                 {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
@@ -139,6 +144,7 @@ export default function ReportsPage() {
       </header>
 
       {isAdmin ? (
+        /* 📊 VISTA SUPER ADMIN: TABLA PROFESIONAL */
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
           <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-white">
              <div className="flex items-center gap-3">
@@ -158,27 +164,27 @@ export default function ReportsPage() {
                   <th className="px-8 py-5">Visitador</th>
                   <th className="px-8 py-5">Médico / Institución</th>
                   <th className="px-8 py-5 text-center">Estado</th>
-                  <th className="px-8 py-5">Muestras Entregadas</th>
+                  <th className="px-8 py-5">Muestras</th>
                   <th className="px-8 py-5">Observaciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {loadingAudit ? (
-                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold animate-pulse italic">Cargando datos filtrados...</td></tr>
+                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold animate-pulse italic uppercase">Sincronizando registros...</td></tr>
                 ) : auditReports.length === 0 ? (
-                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold uppercase text-xs">Sin reportes para esta selección.</td></tr>
+                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold uppercase text-xs">Sin reportes para {selectedRep}</td></tr>
                 ) : auditReports.map((r) => (
                   <tr key={r.id} className="hover:bg-blue-50/30 transition-colors">
                     <td className="px-8 py-5 text-[10px] font-bold text-gray-400 whitespace-nowrap">{r.reportedAt?.toDate().toLocaleDateString()}</td>
                     <td className="px-8 py-5 text-xs font-black text-blue-600 italic">{r.userEmail}</td>
                     <td className="px-8 py-5 text-xs font-black text-gray-900 uppercase">{r.doctorName}</td>
                     <td className="px-8 py-5 text-center">
-                      <span className="bg-green-100 text-green-700 text-[9px] font-black px-3 py-1 rounded-lg uppercase border border-green-200">REALIZADA</span>
+                      <span className="bg-green-100 text-green-700 text-[9px] font-black px-3 py-1 rounded-lg uppercase">REALIZADA</span>
                     </td>
                     <td className="px-8 py-5 text-[10px] text-gray-400 font-bold italic">
-                      {r.samples?.length > 0 ? r.samples.map((s:any) => `${s.qty}x ${s.name}`).join(', ') : 'Sin Muestras'}
+                      {r.samples?.length > 0 ? r.samples.map((s:any) => `${s.qty}x ${s.name}`).join(', ') : 'N/A'}
                     </td>
-                    <td className="px-8 py-5 text-[10px] text-gray-500 font-medium max-w-[300px] truncate">{r.observations || 'N/A'}</td>
+                    <td className="px-8 py-5 text-[10px] text-gray-500 font-medium max-w-[300px] truncate">{r.observations || 'Sin notas'}</td>
                   </tr>
                 ))}
               </tbody>
