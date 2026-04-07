@@ -47,14 +47,15 @@ export default function ReportsPage() {
     if (!user?.email) return;
 
     if (isAdmin) {
-      // 🟢 LÓGICA ADMIN: Cargar reportes del mes
+      // 🟢 LÓGICA ADMIN: Cargar reportes del mes (CORREGIDO PARA TYPESCRIPT)
       const fetchAdminReports = async () => {
         setLoadingAdmin(true);
         try {
-          let q = collection(db, 'visit_reports');
-          if (selectedRep !== 'Todos') {
-            q = query(q, where('userEmail', '==', selectedRep.toLowerCase().trim()));
-          }
+          const reportsRef = collection(db, 'visit_reports');
+          const q = selectedRep === 'Todos' 
+            ? query(reportsRef) 
+            : query(reportsRef, where('userEmail', '==', selectedRep.toLowerCase().trim()));
+            
           const snap = await getDocs(q);
           
           let data = snap.docs.map(d => {
@@ -73,7 +74,7 @@ export default function ReportsPage() {
           console.error("Error Admin:", e);
         } finally {
           setLoadingAdmin(false);
-          setLoading(false); // Apagamos el loading general también
+          setLoading(false); 
         }
       };
       fetchAdminReports();
@@ -161,13 +162,12 @@ export default function ReportsPage() {
       return [
         r.localDateStr,
         r.userEmail,
-        r.doctorName,
+        `"${r.doctorName}"`,
         r.status,
         `"${samplesStr}"`,
         `"${obsStr}"`
       ].join(',');
     });
-    // Agregamos \uFEFF para que Excel lea las tildes (UTF-8) correctamente
     const csvContent = "\uFEFF" + [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
