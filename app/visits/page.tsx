@@ -5,7 +5,6 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { Search, User, Filter, Calendar, Zap, Loader2, X, Lock, Pencil, Trash2 } from 'lucide-react'
 
-// --- FUNCIÓN DE HUELLA GPS (NUEVA) ---
 const getFingerprintLocation = () => {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || !navigator.geolocation) return resolve(null);
@@ -17,7 +16,7 @@ const getFingerprintLocation = () => {
         timestamp: new Date().toISOString() 
       }),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 4000 }
+      { enableHighAccuracy: true, timeout: 5000 }
     );
   });
 };
@@ -28,10 +27,8 @@ export default function PlanningPage() {
   const [plannedVisits, setPlannedVisits] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
-  
   const [visitDate, setVisitDate] = useState('2026-04-01')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
@@ -49,7 +46,6 @@ export default function PlanningPage() {
 
       let q;
       const visitsRef = collection(db, 'planned_visits');
-      
       if (isAdmin && selectedRep === 'Todos') {
         q = query(visitsRef); 
       } else {
@@ -59,7 +55,6 @@ export default function PlanningPage() {
 
       const querySnapshot = await getDocs(q)
       let allVisits = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      
       allVisits.sort((a: any, b: any) => (a.visitDate || '').localeCompare(b.visitDate || ''));
       setPlannedVisits(allVisits.filter((v: any) => v.visitDate?.includes('-04-')));
     } catch (e) { console.error(e) } finally { setLoading(false) }
@@ -74,13 +69,9 @@ export default function PlanningPage() {
 
   const handleSaveVisit = async () => {
     if (!selectedDoctor || !visitDate) return alert('Datos incompletos')
-    if (isAdmin && selectedRep === 'Todos') return alert('Selecciona un visitador')
-    
     setSaving(true)
     try {
-      // CAPTURA DE UBICACIÓN SILENCIOSA
       const locationFingerprint = await getFingerprintLocation();
-
       const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim();
       
       const newVisitData = {
@@ -98,41 +89,35 @@ export default function PlanningPage() {
         endTime,
         status,
         updatedAt: Timestamp.now(),
-        // SE AGREGA LA HUELLA SI EXISTE
         ...(locationFingerprint && { locationFingerprint })
       };
 
       if (editingId) {
-        const docRef = doc(db, 'planned_visits', editingId)
-        await updateDoc(docRef, newVisitData)
+        await updateDoc(doc(db, 'planned_visits', editingId), newVisitData)
         alert('Actualizada')
       } else {
         await addDoc(collection(db, 'planned_visits'), { ...newVisitData, createdAt: Timestamp.now() })
         alert('Agendada')
       }
-      resetForm()
-      fetchData()
-    } catch (e) { alert('Error') } finally { setSaving(false) }
+      resetForm(); fetchData();
+    } catch (e) { alert('Error al guardar') } finally { setSaving(false) }
   }
 
   const handleDeleteVisit = async () => {
-    if (!editingId || !window.confirm('¿Eliminar?')) return;
+    if (!editingId || !window.confirm('¿Eliminar cita?')) return;
     setSaving(true);
     try {
       await deleteDoc(doc(db, 'planned_visits', editingId));
-      resetForm();
-      fetchData();
-    } catch (e) { alert('Error'); } finally { setSaving(false); }
+      alert('Cita eliminada'); resetForm(); fetchData();
+    } catch (e) { alert('Error al eliminar'); } finally { setSaving(false); }
   }
 
   const startEdit = (visit: any) => {
-    setEditingId(visit.id)
-    setSelectedDoctor({ id: visit.doctorId, name: visit.doctorName, ...visit.doctorDetails })
-    setVisitDate(visit.visitDate)
-    setStartTime(visit.startTime || '')
-    setEndTime(visit.endTime || '')
-    setStatus(visit.status)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setEditingId(visit.id);
+    setSelectedDoctor({ id: visit.doctorId, name: visit.doctorName, ...visit.doctorDetails });
+    setVisitDate(visit.visitDate); setStartTime(visit.startTime || '');
+    setEndTime(visit.endTime || ''); setStatus(visit.status);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   const resetForm = () => {
@@ -169,12 +154,12 @@ export default function PlanningPage() {
       <header className="flex flex-col md:flex-row justify-between mb-10 gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">Planeación</h1>
-          <p className="text-gray-500 font-medium text-xs">Abril 2026</p>
+          <p className="text-gray-500 font-medium">Abril 2026 — Gestión de agenda</p>
         </div>
         {isAdmin && (
           <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
             <Filter size={20} className="text-indigo-600 ml-2"/>
-            <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold bg-transparent outline-none">
+            <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold bg-transparent border-none outline-none cursor-pointer">
               <option value="Todos">Toda la Empresa</option>
               {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
             </select>
@@ -187,6 +172,7 @@ export default function PlanningPage() {
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                <label className="text-[10px] font-black uppercase text-gray-400 mb-3 block ml-2">Cartera Faltante</label>
                 <select className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
                   const doc = myFullDocsList.find((d:any) => d.id === e.target.value);
                   if (doc) { setSelectedDoctor(doc); setSearchTerm(doc.name); }
@@ -201,7 +187,7 @@ export default function PlanningPage() {
                 {searchTerm && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
                     {myDocsFiltered.map((doc:any) => (
-                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-blue-50 rounded-2xl font-bold uppercase text-xs">
+                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-blue-50 border border-blue-100 rounded-2xl font-bold uppercase text-xs">
                         {doc.name} <span className="text-blue-500">— {doc.city}</span>
                       </button>
                     ))}
@@ -216,44 +202,53 @@ export default function PlanningPage() {
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
                     <div>
-                      <h2 className="text-xl font-black text-gray-900 uppercase">{selectedDoctor.name}</h2>
+                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{selectedDoctor.name}</h2>
                       <p className="text-[10px] font-bold text-gray-400 uppercase">{selectedDoctor.specialty} | {selectedDoctor.city}</p>
                     </div>
                   </div>
-                  <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full"><X size={16}/></button>
+                  <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-gray-50 rounded-xl py-3 px-4 text-xs font-bold" />
-                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-gray-50 rounded-xl py-3 px-4 text-xs font-bold">
+                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
+                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm">
                     <option value="Planeada">Planeada</option>
                     <option value="Realizada">Realizada</option>
                     <option value="Reagendada">Reagendada</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-gray-50 rounded-xl py-3 px-4 text-xs font-bold" />
-                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-gray-50 rounded-xl py-3 px-4 text-xs font-bold" />
+                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
+                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-white border-none rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
                 </div>
-                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}>
-                  {saving ? <Loader2 className="animate-spin m-auto" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}>
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
+                  </button>
+                  {editingId && (
+                    <button disabled={saving} onClick={handleDeleteVisit} className="w-full text-red-600 bg-red-50 border border-red-200 text-[10px] font-black uppercase py-4 rounded-2xl flex items-center justify-center gap-2">
+                      <Trash2 size={16} /> Eliminar Cita
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
         )}
 
         <div className="w-full">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
               const visits = getVisitsForDay(d);
               return (
-                <div key={d} className={`bg-white p-3 rounded-[30px] border min-h-[120px] flex flex-col ${visits.length > 0 ? 'border-blue-500 bg-blue-50/20' : 'border-gray-100'}`}>
+                <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visits.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
                   <span className={`text-[11px] font-black mb-2 ${visits.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / 04</span>
                   <div className="flex flex-col gap-1.5">
                     {visits.map((v, idx) => (
-                      <button key={idx} onClick={() => startEdit(v)} className="bg-blue-600 text-white p-1.5 rounded-lg text-[9px] font-black uppercase truncate flex justify-between items-center hover:bg-blue-700">
-                        <span className="truncate">{v.doctorName}</span>
-                        <Pencil size={8} className="ml-1" />
+                      <button key={idx} onClick={() => startEdit(v)} className="group bg-blue-600 text-white p-1.5 rounded-lg text-left px-2 flex justify-between items-center hover:bg-blue-700">
+                        <div className="flex flex-col truncate flex-1">
+                          <span className="text-[9px] font-black uppercase truncate">{v.doctorName}</span>
+                        </div>
+                        <Pencil size={8} className="opacity-0 group-hover:opacity-100 flex-shrink-0" />
                       </button>
                     ))}
                   </div>
