@@ -44,7 +44,18 @@ export async function GET(request: Request) {
     ];
     
     all.forEach((v: any) => {
-      tableRows += `<tr><td style="padding:10px;border-bottom:1px solid #eee;">${v.userEmail || v.representativeEmail || 'N/A'}</td><td style="padding:10px;border-bottom:1px solid #eee;">${v.startTime || '--'}</td><td style="padding:10px;border-bottom:1px solid #eee;">${v.doctorName || v.doctor || 'N/A'}</td></tr>`;
+      const isReported = v.type === 'Reportada';
+      tableRows += `
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #eee;">${v.userEmail || v.representativeEmail || 'N/A'}</td>
+          <td style="padding:10px;border-bottom:1px solid #eee;">${v.startTime || '--'}</td>
+          <td style="padding:10px;border-bottom:1px solid #eee;">${v.doctorName || v.doctor || 'N/A'}</td>
+          <td style="padding:10px;border-bottom:1px solid #eee;">
+            <span style="background: ${isReported ? '#dcfce7' : '#fef9c3'}; color: ${isReported ? '#166534' : '#854d0e'}; padding: 4px 8px; border-radius: 6px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
+              ${v.type}
+            </span>
+          </td>
+        </tr>`;
     });
 
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -58,12 +69,28 @@ export async function GET(request: Request) {
         sender: { name: "Gestion Diaria Farmaser", email: "notificaciones@gestiondiariafarmaser.com" },
         to: [{ email: adminEmail }],
         subject: `📊 Reporte Diario Farmaser - ${today}`,
-        htmlContent: `<div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #eee;padding:20px;border-radius:15px;"><h2>Reporte Diario - ${today}</h2><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f8fafc;text-align:left;"><th style="padding:10px;">Visitador</th><th style="padding:10px;">Hora</th><th style="padding:10px;">Contacto</th></tr></thead><tbody>${tableRows}</tbody></table></div>`
+        htmlContent: `
+          <div style="font-family:sans-serif;max-width:700px;margin:auto;border:1px solid #eee;padding:20px;border-radius:15px;">
+            <h2 style="color:#1e3a8a;">Reporte de Actividad - ${today}</h2>
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr style="background:#f8fafc;text-align:left;">
+                  <th style="padding:10px;border-bottom:2px solid #e2e8f0;">Visitador</th>
+                  <th style="padding:10px;border-bottom:2px solid #e2e8f0;">Hora</th>
+                  <th style="padding:10px;border-bottom:2px solid #e2e8f0;">Médico o Droguería</th>
+                  <th style="padding:10px;border-bottom:2px solid #e2e8f0;">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+          </div>`
       }),
     });
 
-    const brevoData = await res.json();
-    return NextResponse.json({ success: res.ok, detail: brevoData });
+    const data = await res.json();
+    return NextResponse.json({ success: res.ok, detail: data });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
