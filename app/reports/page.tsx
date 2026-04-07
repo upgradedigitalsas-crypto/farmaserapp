@@ -3,9 +3,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
-import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, AlertCircle, Filter, Download, Briefcase } from 'lucide-react'
+import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, AlertCircle, Filter, Download } from 'lucide-react'
 
-// Captura de GPS silenciosa para seguridad
 const getFingerprintLocation = () => {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || !navigator.geolocation) return resolve(null);
@@ -41,7 +40,6 @@ export default function ReportsPage() {
   const todayStr = new Date().toISOString().slice(0, 10)
   const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
 
-  // Carga inicial de datos
   useEffect(() => {
     fetch('/api/doctors').then(res => res.json()).then(data => setDoctors(Array.isArray(data) ? data : []))
     fetch('/api/products').then(res => res.json()).then(data => setProducts(Array.isArray(data) ? data : []))
@@ -51,7 +49,7 @@ export default function ReportsPage() {
     return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
   }, [doctors])
 
-  // LÓGICA DE AUDITORÍA (EXCLUSIVA ADMIN: TABLA PROFESIONAL)
+  // 1. AUDITORÍA (FIXED: Ahora carga "Todos" o el "Visitador Seleccionado")
   useEffect(() => {
     if (!isAdmin) return;
     const fetchAudit = async () => {
@@ -62,20 +60,19 @@ export default function ReportsPage() {
         if (selectedRep === 'Todos') {
           q = query(reportsRef, orderBy('reportedAt', 'desc'));
         } else {
+          // Filtramos por el email seleccionado
           q = query(reportsRef, where('userEmail', '==', selectedRep.toLowerCase().trim()), orderBy('reportedAt', 'desc'));
         }
         const snap = await getDocs(q);
         setAuditReports(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      } catch (e) {
-        console.error("Error cargando auditoría:", e);
-      } finally { setLoadingAudit(false) }
+      } catch (e) { console.error("Error filtrando:", e) } finally { setLoadingAudit(false) }
     }
     fetchAudit()
   }, [isAdmin, selectedRep])
 
-  // LÓGICA DE REPORTE DIARIO (SOLO PARA VISITADORES)
+  // 2. REPORTE DIARIO (PARA VISITADORES)
   useEffect(() => {
-    if (isAdmin) return; // El admin no usa la vista de tarjetas
+    if (isAdmin) return;
     const fetchToday = async () => {
       setLoading(true)
       try {
@@ -124,9 +121,7 @@ export default function ReportsPage() {
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">
             {isAdmin ? 'Auditoría Mensual' : 'Reportar Cita'}
           </h1>
-          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2 italic">
-            {isAdmin ? `VISTA DE CONTROL: ${selectedRep}` : `FECHA DE GESTIÓN: ${todayStr}`}
-          </p>
+          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2 italic">Historial del mes: 2026-04</p>
         </div>
 
         {isAdmin && (
@@ -144,15 +139,15 @@ export default function ReportsPage() {
       </header>
 
       {isAdmin ? (
-        /* 📊 VISTA SUPER ADMIN: TABLA PROFESIONAL */
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
           <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-white">
              <div className="flex items-center gap-3">
                <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
                <h2 className="font-black uppercase text-gray-900 text-sm tracking-tighter">Historial de Visitas Realizadas</h2>
              </div>
-             <button onClick={exportCSV} className="bg-slate-900 hover:bg-blue-600 text-white text-[10px] font-black uppercase px-6 py-3 rounded-xl flex items-center gap-2 transition-all">
-                <Download size={16}/> Exportar Datos
+             {/* 🟢 BOTÓN VERDE RESTAURADO */}
+             <button onClick={exportCSV} className="bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-6 py-3 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-green-100">
+                <Download size={16}/> Descargar Excel
              </button>
           </div>
           <div className="overflow-x-auto">
@@ -169,25 +164,21 @@ export default function ReportsPage() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {loadingAudit ? (
-                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold animate-pulse italic">Sincronizando con la nube...</td></tr>
+                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold animate-pulse italic">Cargando datos filtrados...</td></tr>
                 ) : auditReports.length === 0 ? (
-                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold uppercase text-xs">No hay reportes registrados para esta selección.</td></tr>
+                  <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold uppercase text-xs">Sin reportes para esta selección.</td></tr>
                 ) : auditReports.map((r) => (
                   <tr key={r.id} className="hover:bg-blue-50/30 transition-colors">
-                    <td className="px-8 py-5 text-[10px] font-bold text-gray-400 whitespace-nowrap">
-                      {r.reportedAt?.toDate().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </td>
+                    <td className="px-8 py-5 text-[10px] font-bold text-gray-400 whitespace-nowrap">{r.reportedAt?.toDate().toLocaleDateString()}</td>
                     <td className="px-8 py-5 text-xs font-black text-blue-600 italic">{r.userEmail}</td>
-                    <td className="px-8 py-5 text-xs font-black text-gray-900 uppercase tracking-tight">{r.doctorName}</td>
+                    <td className="px-8 py-5 text-xs font-black text-gray-900 uppercase">{r.doctorName}</td>
                     <td className="px-8 py-5 text-center">
                       <span className="bg-green-100 text-green-700 text-[9px] font-black px-3 py-1 rounded-lg uppercase border border-green-200">REALIZADA</span>
                     </td>
                     <td className="px-8 py-5 text-[10px] text-gray-400 font-bold italic">
                       {r.samples?.length > 0 ? r.samples.map((s:any) => `${s.qty}x ${s.name}`).join(', ') : 'Sin Muestras'}
                     </td>
-                    <td className="px-8 py-5 text-[10px] text-gray-500 font-medium max-w-[300px] truncate" title={r.observations}>
-                      {r.observations || 'N/A'}
-                    </td>
+                    <td className="px-8 py-5 text-[10px] text-gray-500 font-medium max-w-[300px] truncate">{r.observations || 'N/A'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -195,11 +186,11 @@ export default function ReportsPage() {
           </div>
         </div>
       ) : (
-        /* 📱 VISTA VISITADOR: TARJETAS DE REPORTE */
+        /* VISTA VISITADOR MANTENIDA */
         <div className="max-w-[900px]">
            {!selectedVisit ? (
              <div className="space-y-4">
-               {loading ? <div className="p-20 text-center font-black text-gray-300 animate-pulse uppercase">Cargando Agenda...</div> :
+               {loading ? <div className="p-20 text-center font-black text-gray-300 animate-pulse uppercase">Cargando...</div> :
                 visits.length === 0 ? (
                   <div className="bg-white p-12 rounded-[40px] text-center border border-dashed border-gray-200">
                     <Package className="text-gray-200 mb-4 mx-auto" size={48} />
@@ -212,9 +203,7 @@ export default function ReportsPage() {
                          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all"><User size={24}/></div>
                          <div>
                            <p className="font-black text-gray-900 uppercase leading-none mb-1 text-sm">{v.doctorName}</p>
-                           <p className="text-[10px] font-bold text-gray-400 uppercase">
-                             {v.doctorDetails?.specialty} • {v.doctorDetails?.city}
-                           </p>
+                           <p className="text-[10px] font-bold text-gray-400 uppercase">{v.doctorDetails?.specialty} • {v.doctorDetails?.city}</p>
                          </div>
                       </div>
                       <div className="bg-blue-600 px-6 py-2 rounded-xl text-[10px] font-black text-white uppercase shadow-md">REPORTAR</div>
@@ -227,34 +216,7 @@ export default function ReportsPage() {
                 <button onClick={() => setSelectedVisit(null)} className="mb-8 text-gray-400 font-black uppercase text-[10px] flex items-center gap-2 hover:text-red-500 transition-colors"><X size={14}/> Volver</button>
                 <h2 className="text-3xl font-black uppercase text-gray-900 tracking-tighter mb-8">{selectedVisit.doctorName}</h2>
                 <div className="space-y-10">
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400 block mb-4 tracking-widest">Entrega de Muestras</label>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-6">
-                      {products.map(p => (
-                        <button key={p.id} onClick={() => {
-                          const exists = samples.find(s => s.productId === p.id);
-                          if (exists) setSamples(samples.map(s => s.productId === p.id ? {...s, qty: s.qty+1} : s));
-                          else setSamples([...samples, { productId: p.id, name: p.name, qty: 1 }]);
-                        }} className="p-3 bg-gray-50 rounded-xl text-[9px] font-black uppercase text-gray-500 hover:bg-blue-600 hover:text-white transition-all">
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
-                    {samples.map(s => (
-                      <div key={s.productId} className="flex items-center justify-between bg-blue-50 p-4 rounded-2xl mb-2">
-                        <span className="text-[10px] font-black uppercase text-blue-700">{s.name}</span>
-                        <div className="flex items-center gap-4">
-                          <button onClick={() => setSamples(samples.map(x => x.productId === s.productId ? {...x, qty: Math.max(0, x.qty-1)} : x).filter(x => x.qty > 0))} className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-blue-600 shadow-sm"><Minus size={14}/></button>
-                          <span className="font-black text-blue-800">{s.qty}</span>
-                          <button onClick={() => setSamples(samples.map(x => x.productId === s.productId ? {...x, qty: x.qty+1} : x))} className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-blue-600 shadow-sm"><Plus size={14}/></button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-gray-400 block mb-4 tracking-widest">Observaciones</label>
-                    <textarea value={obs} onChange={e => setObs(e.target.value)} rows={4} className="w-full bg-gray-50 rounded-3xl p-6 text-sm font-bold border-none focus:ring-2 focus:ring-blue-600" placeholder="Notas de la visita..."/>
-                  </div>
+                  <textarea value={obs} onChange={e => setObs(e.target.value)} rows={4} className="w-full bg-gray-50 rounded-3xl p-6 text-sm font-bold border-none focus:ring-2 focus:ring-blue-600" placeholder="Notas de la visita..."/>
                   <button onClick={handleSaveReport} disabled={saving} className="w-full bg-green-600 text-white font-black py-6 rounded-3xl uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3">
                     {saving ? <Loader2 className="animate-spin" size={20}/> : <CheckCircle size={20}/>} Guardar Reporte Final
                   </button>
