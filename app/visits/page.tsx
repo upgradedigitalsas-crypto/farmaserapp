@@ -5,23 +5,19 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { Search, User, Filter, Calendar, Zap, Loader2, X, Lock, Pencil, Trash2 } from 'lucide-react'
 
-// Función auxiliar para capturar ubicación de forma segura y silenciosa
+// --- FUNCIÓN DE HUELLA GPS (NUEVA) ---
 const getFingerprintLocation = () => {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      return resolve(null);
-    }
+    if (typeof window === 'undefined' || !navigator.geolocation) return resolve(null);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: `${Math.round(position.coords.accuracy)}m`,
-          timestamp: new Date().toISOString()
-        });
-      },
-      () => resolve(null), // Si el usuario niega o hay error, devolvemos null y seguimos
-      { enableHighAccuracy: true, timeout: 3000 } // Máximo 3 segundos de espera
+      (pos) => resolve({ 
+        lat: pos.coords.latitude, 
+        lng: pos.coords.longitude, 
+        accuracy: `${Math.round(pos.coords.accuracy)}m`,
+        timestamp: new Date().toISOString() 
+      }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 4000 }
     );
   });
 };
@@ -66,11 +62,7 @@ export default function PlanningPage() {
       
       allVisits.sort((a: any, b: any) => (a.visitDate || '').localeCompare(b.visitDate || ''));
       setPlannedVisits(allVisits.filter((v: any) => v.visitDate?.includes('-04-')));
-    } catch (e) { 
-      console.error(e) 
-    } finally { 
-      setLoading(false) 
-    }
+    } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData() }, [user, selectedRep])
@@ -82,11 +74,11 @@ export default function PlanningPage() {
 
   const handleSaveVisit = async () => {
     if (!selectedDoctor || !visitDate) return alert('Datos incompletos')
-    if (isAdmin && selectedRep === 'Todos') return alert('Selecciona un visitador específico para agendarle una cita')
+    if (isAdmin && selectedRep === 'Todos') return alert('Selecciona un visitador')
     
     setSaving(true)
     try {
-      // CAPTURA DE HUELLA DE UBICACIÓN
+      // CAPTURA DE UBICACIÓN SILENCIOSA
       const locationFingerprint = await getFingerprintLocation();
 
       const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim();
@@ -106,34 +98,28 @@ export default function PlanningPage() {
         endTime,
         status,
         updatedAt: Timestamp.now(),
-        // Insertamos la huella solo si se obtuvo
+        // SE AGREGA LA HUELLA SI EXISTE
         ...(locationFingerprint && { locationFingerprint })
       };
 
       if (editingId) {
         const docRef = doc(db, 'planned_visits', editingId)
         await updateDoc(docRef, newVisitData)
-        setPlannedVisits(prev => prev.map(v => v.id === editingId ? { ...v, ...newVisitData } : v).sort((a: any, b: any) => a.visitDate.localeCompare(b.visitDate)));
-        alert('Planeación actualizada')
+        alert('Actualizada')
       } else {
-        const docRef = await addDoc(collection(db, 'planned_visits'), { ...newVisitData, createdAt: Timestamp.now() })
-        setPlannedVisits(prev => [...prev, { id: docRef.id, ...newVisitData }].sort((a: any, b: any) => a.visitDate.localeCompare(b.visitDate)));
-        alert('Visita agendada')
+        await addDoc(collection(db, 'planned_visits'), { ...newVisitData, createdAt: Timestamp.now() })
+        alert('Agendada')
       }
       resetForm()
       fetchData()
-    } catch (e) { alert('Error al procesar') } finally { setSaving(false) }
+    } catch (e) { alert('Error') } finally { setSaving(false) }
   }
 
   const handleDeleteVisit = async () => {
-    if (!editingId) return;
-    const confirmDelete = window.confirm('¿Estás seguro?');
-    if (!confirmDelete) return;
+    if (!editingId || !window.confirm('¿Eliminar?')) return;
     setSaving(true);
     try {
       await deleteDoc(doc(db, 'planned_visits', editingId));
-      setPlannedVisits(prev => prev.filter(v => v.id !== editingId));
-      alert('Eliminada');
       resetForm();
       fetchData();
     } catch (e) { alert('Error'); } finally { setSaving(false); }
@@ -150,32 +136,25 @@ export default function PlanningPage() {
   }
 
   const resetForm = () => {
-    setEditingId(null)
-    setSelectedDoctor(null)
-    setSearchTerm('')
-    setVisitDate('2026-04-01')
-    setStartTime('')
-    setEndTime('')
+    setEditingId(null); setSelectedDoctor(null); setSearchTerm('');
+    setVisitDate('2026-04-01'); setStartTime(''); setEndTime('');
   }
 
   const myFullDocsList = useMemo(() => {
     const targetEmail = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim();
     if (!targetEmail && isAdmin) return [];
     const plannedNames = new Set(plannedVisits.map(v => String(v.doctorName || '').toLowerCase().trim()));
-    const base = doctors.filter((d: any) => {
-      const isAssignedToMe = String(d.assignedTo || '').toLowerCase().trim() === targetEmail;
-      const isNotPlannedYet = !plannedNames.has(String(d.name || '').toLowerCase().trim());
-      return isAssignedToMe && isNotPlannedYet;
-    });
-    return base.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    return doctors.filter((d: any) => {
+      const isAssigned = String(d.assignedTo || '').toLowerCase().trim() === targetEmail;
+      const isNotPlanned = !plannedNames.has(String(d.name || '').toLowerCase().trim());
+      return isAssigned && isNotPlanned;
+    }).sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, user, selectedRep, isAdmin, plannedVisits]);
 
   const myDocsFiltered = useMemo(() => {
     if (!searchTerm || selectedDoctor) return [];
     const term = searchTerm.toLowerCase();
-    return myFullDocsList.filter((d: any) => 
-      d.name?.toLowerCase().includes(term) || d.city?.toLowerCase().includes(term)
-    );
+    return myFullDocsList.filter((d: any) => d.name?.toLowerCase().includes(term) || d.city?.toLowerCase().includes(term));
   }, [myFullDocsList, searchTerm, selectedDoctor]);
 
   const getVisitsForDay = (day: number) => {
@@ -187,15 +166,15 @@ export default function PlanningPage() {
 
   return (
     <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+      <header className="flex flex-col md:flex-row justify-between mb-10 gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">Planeación</h1>
-          <p className="text-gray-500 font-medium">Abril 2026</p>
+          <p className="text-gray-500 font-medium text-xs">Abril 2026</p>
         </div>
         {isAdmin && (
           <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
             <Filter size={20} className="text-indigo-600 ml-2"/>
-            <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold text-gray-900 bg-transparent border-none outline-none pr-4">
+            <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold bg-transparent outline-none">
               <option value="Todos">Toda la Empresa</option>
               {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
             </select>
@@ -208,29 +187,21 @@ export default function PlanningPage() {
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <label className="text-[10px] font-black uppercase text-gray-400 mb-3 block">Cartera pendiente</label>
-                <select
-                  className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 px-5 text-sm font-bold text-gray-700"
-                  value={selectedDoctor?.id || ""}
-                  onChange={(e) => {
-                    const doc = myFullDocsList.find((d:any) => d.id === e.target.value);
-                    if (doc) { setSelectedDoctor(doc); setSearchTerm(doc.name); }
-                  }}
-                >
+                <select className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
+                  const doc = myFullDocsList.find((d:any) => d.id === e.target.value);
+                  if (doc) { setSelectedDoctor(doc); setSearchTerm(doc.name); }
+                }}>
                   <option value="">-- Seleccionar Médico --</option>
-                  {myFullDocsList.map((doc:any) => (
-                    <option key={doc.id} value={doc.id}>{doc.name} — {doc.city}</option>
-                  ))}
+                  {myFullDocsList.map((doc:any) => <option key={doc.id} value={doc.id}>{doc.name} — {doc.city}</option>)}
                 </select>
-
                 <div className="relative mt-6">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Buscar..." className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-14 pr-6 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Buscar..." className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 {searchTerm && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
                     {myDocsFiltered.map((doc:any) => (
-                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-blue-50 border border-blue-100 rounded-2xl font-bold uppercase text-xs">
+                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name); }} className="w-full text-left p-4 bg-blue-50 rounded-2xl font-bold uppercase text-xs">
                         {doc.name} <span className="text-blue-500">— {doc.city}</span>
                       </button>
                     ))}
@@ -240,30 +211,30 @@ export default function PlanningPage() {
             )}
 
             {selectedDoctor && (
-              <div className={`p-8 rounded-[40px] shadow-xl border-2 ${editingId ? 'bg-orange-50 border-orange-400' : 'bg-white border-blue-600'}`}>
+              <div className={`p-8 rounded-[40px] shadow-xl border-2 transition-all ${editingId ? 'bg-orange-50 border-orange-400' : 'bg-white border-blue-600'}`}>
                 <div className="flex justify-between mb-6">
-                  <div>
-                    <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{selectedDoctor.name}</h2>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">{selectedDoctor.specialty} | {selectedDoctor.city}</p>
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
+                    <div>
+                      <h2 className="text-xl font-black text-gray-900 uppercase">{selectedDoctor.name}</h2>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">{selectedDoctor.specialty} | {selectedDoctor.city}</p>
+                    </div>
                   </div>
                   <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full"><X size={16}/></button>
                 </div>
-                
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="bg-gray-50 rounded-xl p-3 text-xs font-bold" />
-                  <select value={status} onChange={e => setStatus(e.target.value)} className="bg-gray-50 rounded-xl p-3 text-xs font-bold">
+                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-gray-50 rounded-xl py-3 px-4 text-xs font-bold" />
+                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-gray-50 rounded-xl py-3 px-4 text-xs font-bold">
                     <option value="Planeada">Planeada</option>
                     <option value="Realizada">Realizada</option>
                     <option value="Reagendada">Reagendada</option>
                   </select>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 mb-6">
-                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="bg-gray-50 rounded-xl p-3 text-xs font-bold" />
-                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="bg-gray-50 rounded-xl p-3 text-xs font-bold" />
+                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-gray-50 rounded-xl py-3 px-4 text-xs font-bold" />
+                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-gray-50 rounded-xl py-3 px-4 text-xs font-bold" />
                 </div>
-                
-                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase py-5 rounded-2xl shadow-lg ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}>
+                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}>
                   {saving ? <Loader2 className="animate-spin m-auto" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
                 </button>
               </div>
@@ -276,13 +247,16 @@ export default function PlanningPage() {
             {days.map(d => {
               const visits = getVisitsForDay(d);
               return (
-                <div key={d} className={`bg-white p-3 rounded-[20px] border min-h-[120px] flex flex-col ${visits.length > 0 ? 'border-blue-500 bg-blue-50/20' : 'border-gray-100'}`}>
-                  <span className="text-[11px] font-black mb-2 text-gray-300">{d.toString().padStart(2, '0')}</span>
-                  {visits.map((v, idx) => (
-                    <button key={idx} onClick={() => startEdit(v)} className="bg-blue-600 text-white p-1.5 rounded-lg mb-1 text-[9px] font-black uppercase truncate flex justify-between items-center">
-                      {v.doctorName} <Pencil size={8} />
-                    </button>
-                  ))}
+                <div key={d} className={`bg-white p-3 rounded-[30px] border min-h-[120px] flex flex-col ${visits.length > 0 ? 'border-blue-500 bg-blue-50/20' : 'border-gray-100'}`}>
+                  <span className={`text-[11px] font-black mb-2 ${visits.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / 04</span>
+                  <div className="flex flex-col gap-1.5">
+                    {visits.map((v, idx) => (
+                      <button key={idx} onClick={() => startEdit(v)} className="bg-blue-600 text-white p-1.5 rounded-lg text-[9px] font-black uppercase truncate flex justify-between items-center hover:bg-blue-700">
+                        <span className="truncate">{v.doctorName}</span>
+                        <Pencil size={8} className="ml-1" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )
             })}
