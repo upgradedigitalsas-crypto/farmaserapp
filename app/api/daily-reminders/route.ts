@@ -56,11 +56,18 @@ export async function GET(request: Request) {
       repVisits.forEach(v => {
         const detail = v.doctorDetails || {};
         
-        // 🛠️ CORRECCIÓN DE CONCATENACIÓN (Igual que en Cartera/Médicos)
-        // Si la dirección es "Principal", la ignoramos y buscamos los otros campos
-        const dirBase = detail.address && detail.address !== 'Principal' ? detail.address : '';
-        const barrio = detail.neighborhood || '';
-        const fullAddress = `${dirBase} ${barrio}`.trim() || 'Ver en App';
+        // 🛠️ TRATAMIENTO DE DIRECCIÓN (Misma lógica de Cartera)
+        const direccion = detail.address || detail.direccion || '';
+        const barrio = detail.neighborhood || detail.barrio || '';
+        
+        // Si la dirección es "Principal", intentamos usar el barrio. 
+        // Si no hay barrio, dejamos "Principal" para no dejarlo vacío.
+        let dirFinal = '';
+        if (direccion === 'Principal') {
+           dirFinal = barrio || 'Principal';
+        } else {
+           dirFinal = `${direccion} ${barrio}`.trim();
+        }
 
         tableRows += `
           <tr>
@@ -68,7 +75,7 @@ export async function GET(request: Request) {
             <td style="padding:10px;border-bottom:1px solid #eee;">${v.doctorName || 'N/A'}</td>
             <td style="padding:10px;border-bottom:1px solid #eee;">${detail.category || 'A'}</td>
             <td style="padding:10px;border-bottom:1px solid #eee;">${detail.city || 'N/A'}</td>
-            <td style="padding:10px;border-bottom:1px solid #eee;font-size:11px;color:#2563eb;font-weight:bold;">${fullAddress}</td>
+            <td style="padding:10px;border-bottom:1px solid #eee;font-size:11px;color:#2563eb;font-weight:bold;text-transform:uppercase;">${dirFinal}</td>
           </tr>`;
       });
 
@@ -84,17 +91,17 @@ export async function GET(request: Request) {
           to: [{ email: email }],
           subject: `📋 Recordatorio: Tu Ruta de Mañana (${tomorrowStr})`,
           htmlContent: `
-            <div style="font-family:sans-serif;max-width:750px;margin:auto;border:1px solid #eee;padding:20px;border-radius:15px;">
+            <div style="font-family:sans-serif;max-width:800px;margin:auto;border:1px solid #eee;padding:20px;border-radius:15px;">
               <h2 style="color:#1e3a8a;text-align:center;text-transform:uppercase;font-style:italic;">Hoja de Ruta - Mañana</h2>
               <p style="color:#64748b;font-size:14px;">Hola, este es tu recordatorio de visitas programadas para mañana <strong>${tomorrowStr}</strong>:</p>
-              <table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:20px;">
+              <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:20px;">
                 <thead>
                   <tr style="background:#f8fafc;text-align:left;color:#475569;text-transform:uppercase;font-size:10px;">
                     <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Hora</th>
                     <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Médico/Droguería</th>
                     <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Cat.</th>
                     <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Ciudad</th>
-                    <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Dirección Completa</th>
+                    <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Dirección Completa (Columna E)</th>
                   </tr>
                 </thead>
                 <tbody>${tableRows}</tbody>
@@ -102,7 +109,6 @@ export async function GET(request: Request) {
               <div style="margin-top:40px;text-align:center;">
                 <a href="https://www.gestiondiariafarmaser.com/reports" style="background:#2563eb;color:white;padding:15px 25px;text-decoration:none;border-radius:10px;font-weight:bold;font-size:13px;text-transform:uppercase;">IR A LA APP PARA REPORTAR</a>
               </div>
-              <p style="margin-top:30px;font-size:10px;color:#94a3b8;text-align:center;text-transform:uppercase;">Sistema de Notificaciones Automáticas Farmaser</p>
             </div>`
         }),
       });
