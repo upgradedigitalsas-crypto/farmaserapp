@@ -71,10 +71,10 @@ export default function PlanningPage() {
         doctorName: selectedDoctor.name,
         doctorId: selectedDoctor.id || null,
         doctorDetails: {
-          category: selectedDoctor.category || 'A',
+          category: selectedDoctor.category || '',
           specialty: selectedDoctor.specialty || '',
           city: selectedDoctor.city || '',
-          address: selectedDoctor.address || 'Principal'
+          address: selectedDoctor.address || ''
         },
         visitDate,
         startTime,
@@ -107,7 +107,16 @@ export default function PlanningPage() {
 
   const startEdit = (v: any) => {
     setEditingId(v.id)
-    setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails })
+    
+    // TRUCO MAGICO: Buscar al medico en la base de datos fresca para traer la direccion real actual
+    const freshDoctor = doctors.find(d => d.id === v.doctorId);
+    
+    if (freshDoctor) {
+      setSelectedDoctor({ ...freshDoctor, name: v.doctorName }) // Usa datos frescos (incluye Columna E)
+    } else {
+      setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails }) // Fallback a lo guardado
+    }
+    
     setVisitDate(v.visitDate); setStartTime(v.startTime || ''); setEndTime(v.endTime || ''); setStatus(v.status)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -187,7 +196,7 @@ export default function PlanningPage() {
                       <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
                         {selectedDoctor.category && <span className="text-blue-500">CAT: {selectedDoctor.category} • </span>}
                         {selectedDoctor.specialty} • {selectedDoctor.city}
-                        {selectedDoctor.address && <span> • DIR: {selectedDoctor.address}</span>}
+                        {selectedDoctor.address && selectedDoctor.address !== 'Principal' && <span> • DIR: {selectedDoctor.address}</span>}
                       </p>
                     </div>
                   </div>
