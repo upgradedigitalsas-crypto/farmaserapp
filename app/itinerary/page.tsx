@@ -2,14 +2,13 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, orderBy } from 'firebase/firestore'
-import { Clock, Loader2, X, Edit3, Filter, MapPin, CalendarDays } from 'lucide-react'
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore'
+import { Clock, Loader2, X, Edit3, Filter, MapPin, CalendarDays, Trash2 } from 'lucide-react'
 
 export default function ItineraryPage() {
-  // Conectamos con la memoria global (Store)
   const { user, selectedRep, setSelectedRep } = useAuthStore()
   
-  const [doctors, setDoctors] = useState<any[]>([]) // Para armar la lista de visitadores
+  const [doctors, setDoctors] = useState<any[]>([]) 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [trips, setTrips] = useState<any[]>([])
@@ -26,7 +25,6 @@ export default function ItineraryPage() {
 
   const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
 
-  // 1. Cargamos médicos para generar la lista de visitadores (Solo Admin)
   useEffect(() => {
     if (isAdmin) {
       fetch('/api/doctors').then(res => res.json()).then(data => {
@@ -40,11 +38,9 @@ export default function ItineraryPage() {
     return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
   }, [doctors, isAdmin])
 
-  // 2. Cargamos los viajes (Itinerarios) según el filtro
   const fetchTrips = async () => {
     const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase()
     
-    // Si es admin y no ha seleccionado a nadie específico, no cargamos nada
     if (!targetEmail || targetEmail === 'Todos') {
       setTrips([])
       setLoading(false)
@@ -59,7 +55,6 @@ export default function ItineraryPage() {
       const querySnapshot = await getDocs(q)
       const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       
-      // Filtramos para asegurar que solo vemos el mes de Abril (04)
       setTrips(data.filter((t: any) => t.startDate?.includes('-04-') || t.endDate?.includes('-04-')))
     } catch (e) { 
       console.error(e) 
@@ -95,6 +90,21 @@ export default function ItineraryPage() {
     } catch (e) { alert('Error al procesar') } finally { setSaving(false) }
   }
 
+  const handleDelete = async () => {
+    if (!editingId || !window.confirm('¿Estás seguro de eliminar esta ruta del itinerario?')) return;
+    setSaving(true);
+    try {
+      await deleteDoc(doc(db, 'itineraries', editingId));
+      alert('¡Ruta eliminada correctamente!');
+      resetForm();
+      await fetchTrips();
+    } catch (e) { 
+      alert('Error al eliminar'); 
+    } finally { 
+      setSaving(false); 
+    }
+  }
+
   const startEdit = (trip: any) => {
     setEditingId(trip.id)
     setFormData({
@@ -118,7 +128,7 @@ export default function ItineraryPage() {
     return trips.find(t => currentDayStr >= t.startDate && currentDayStr <= t.endDate)
   }
 
-  const days = Array.from({length: 30}, (_, i) => i + 1) // Abril 2026
+  const days = Array.from({length: 30}, (_, i) => i + 1)
   
   return (
     <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
@@ -149,7 +159,6 @@ export default function ItineraryPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* FORMULARIO DINÁMICO */}
           <div className={`p-8 rounded-[40px] shadow-sm border transition-all h-fit ${editingId ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'}`}>
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-black uppercase text-gray-900 leading-none">
@@ -180,7 +189,7 @@ export default function ItineraryPage() {
               </div>
               
               <div className="grid grid-cols-2 gap-3">
-                 <div>
+                <div>
                   <label className="text-[9px] font-black text-gray-400 uppercase mb-1 ml-1">H. Inicio</label>
                   <input type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="w-full bg-gray-50 border-none rounded-xl px-3 py-3 text-[11px] font-bold text-gray-600" />
                 </div>
@@ -190,17 +199,28 @@ export default function ItineraryPage() {
                 </div>
               </div>
               
-              <button 
-                disabled={saving} 
-                onClick={handleSave} 
-                className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}
-              >
-                {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Itinerario' : 'Guardar itinerario'}
-              </button>
+              <div className="flex flex-col gap-3 mt-2">
+                <button 
+                  disabled={saving} 
+                  onClick={handleSave} 
+                  className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}
+                >
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Itinerario' : 'Guardar itinerario'}
+                </button>
+
+                {editingId && (
+                  <button 
+                    disabled={saving} 
+                    onClick={handleDelete} 
+                    className="w-full text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl transition-all flex items-center justify-center gap-2"
+                  >
+                    <Trash2 size={16} /> Eliminar Ruta
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* CALENDARIO INTERACTIVO */}
           <div className="lg:col-span-2">
             {loading ? (
               <div className="p-20 text-center font-black text-gray-300 animate-pulse">Sincronizando calendario...</div>
