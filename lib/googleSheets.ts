@@ -32,10 +32,11 @@ export async function getDoctorsFromSheet() {
       id: row[0] || Math.random().toString(), 
       visitadorId: row[0] || '',             
       name: row[2] || '',                    
-      specialty: row[7] || '',               
+      address: row[4] || '',  // AQUI AGREGAMOS LA COLUMNA E (DIRECCION)              
       city: row[6] || '',                    
-      assignedTo: row[11] || '',             
+      specialty: row[7] || '',               
       category: row[8] || '',                
+      assignedTo: row[11] || '',             
     }))
   } catch (error: any) {
     console.error('Error en Sheets:', error.message || error)
