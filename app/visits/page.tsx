@@ -43,10 +43,9 @@ export default function PlanningPage() {
       const resDocs = await fetch('/api/doctors')
       const dataDocs = await resDocs.json()
       setDoctors(Array.isArray(dataDocs) ? dataDocs : [])
-      const visitsRef = collection(db, 'planned_visits')
-      let q = isAdmin && selectedRep === 'Todos' 
-        ? query(visitsRef) 
-        : query(visitsRef, where('userEmail', '==', isAdmin ? selectedRep : user?.email?.toLowerCase().trim()))
+      const vRef = collection(db, 'planned_visits')
+      const emailTarget = isAdmin ? selectedRep : user?.email?.toLowerCase().trim()
+      const q = (isAdmin && selectedRep === 'Todos') ? query(vRef) : query(vRef, where('userEmail', '==', emailTarget))
       const snap = await getDocs(q)
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       setPlannedVisits(all.filter((v: any) => v.visitDate?.includes('-04-')))
@@ -66,7 +65,9 @@ export default function PlanningPage() {
     try {
       const locationFingerprint = await getFingerprintLocation()
       const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim()
-      const data = {
+      
+      // Definimos el objeto de forma explícita para evitar el error de TypeScript
+      const visitData: any = {
         userEmail: targetEmail,
         doctorName: selectedDoctor.name,
         doctorId: selectedDoctor.id || null,
@@ -76,32 +77,40 @@ export default function PlanningPage() {
           city: selectedDoctor.city,
           address: selectedDoctor.address || 'Principal'
         },
-        visitDate, startTime, endTime, status,
-        updatedAt: Timestamp.now(),
-        ...(locationFingerprint && { locationFingerprint })
+        visitDate,
+        startTime,
+        endTime,
+        status,
+        updatedAt: Timestamp.now()
       }
+
+      // Si existe la ubicación, la agregamos al objeto de forma segura
+      if (locationFingerprint) {
+        visitData.locationFingerprint = locationFingerprint;
+      }
+
       if (editingId) {
-        await updateDoc(doc(db, 'planned_visits', editingId), data)
+        await updateDoc(doc(db, 'planned_visits', editingId), visitData)
       } else {
-        await addDoc(collection(db, 'planned_visits'), { ...data, createdAt: Timestamp.now() })
+        await addDoc(collection(db, 'planned_visits'), { ...visitData, createdAt: Timestamp.now() })
       }
       resetForm(); fetchData(); alert('Guardado con éxito')
     } catch (e) { alert('Error al guardar') } finally { setSaving(false) }
   }
 
   const handleDeleteVisit = async () => {
-    if (!editingId || !window.confirm('¿Eliminar?')) return
+    if (!editingId || !window.confirm('¿Eliminar cita?')) return
     setSaving(true)
     try {
       await deleteDoc(doc(db, 'planned_visits', editingId))
-      resetForm(); fetchData(); alert('Eliminado')
-    } catch (e) { alert('Error') } finally { setSaving(false) }
+      resetForm(); fetchData(); alert('Cita eliminada')
+    } catch (e) { alert('Error al eliminar') } finally { setSaving(false) }
   }
 
-  const startEdit = (visit: any) => {
-    setEditingId(visit.id)
-    setSelectedDoctor({ id: visit.doctorId, name: visit.doctorName, ...visit.doctorDetails })
-    setVisitDate(visit.visitDate); setStartTime(visit.startTime || ''); setEndTime(visit.endTime || ''); setStatus(visit.status)
+  const startEdit = (v: any) => {
+    setEditingId(v.id)
+    setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails })
+    setVisitDate(v.visitDate); setStartTime(v.startTime || ''); setEndTime(v.endTime || ''); setStatus(v.status)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -123,10 +132,6 @@ export default function PlanningPage() {
   }, [myFullDocsList, searchTerm, selectedDoctor])
 
   const days = Array.from({length: 30}, (_, i) => i + 1)
-  const getVisitsForDay = (day: number) => {
-    const dStr = `2026-04-${day.toString().padStart(2, '0')}`
-    return plannedVisits.filter(v => v.visitDate === dStr)
-  }
 
   return (
     <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
@@ -150,13 +155,13 @@ export default function PlanningPage() {
         {(!isAdmin || (isAdmin && selectedRep !== 'Todos')) && (
           <div className="w-full space-y-6">
             {!editingId && (
-              <div className="bg-white p-8 rounded-[40px] shadow-sm border">
+              <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
-                  const doc = myFullDocsList.find((d:any) => d.id === e.target.value)
-                  if (doc) { setSelectedDoctor(doc); setSearchTerm(doc.name) }
+                  const docFound = myFullDocsList.find((d:any) => d.id === e.target.value)
+                  if (docFound) { setSelectedDoctor(docFound); setSearchTerm(docFound.name) }
                 }}>
                   <option value="">-- Seleccionar Médico --</option>
-                  {myFullDocsList.map((doc:any) => <option key={doc.id} value={doc.id}>{doc.name} — {doc.city}</option>)}
+                  {myFullDocsList.map((docItem:any) => <option key={docItem.id} value={docItem.id}>{docItem.name} — {docItem.city}</option>)}
                 </select>
                 <div className="relative mt-6">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -164,9 +169,9 @@ export default function PlanningPage() {
                 </div>
                 {searchTerm && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
-                    {myDocsFiltered.map((doc:any) => (
-                      <button key={doc.id} onClick={() => { setSelectedDoctor(doc); setSearchTerm(doc.name) }} className="w-full text-left p-4 bg-blue-50 rounded-2xl font-bold uppercase text-xs">
-                        {doc.name} <span className="text-blue-500">— {doc.city}</span>
+                    {myDocsFiltered.map((docItem:any) => (
+                      <button key={docItem.id} onClick={() => { setSelectedDoctor(docItem); setSearchTerm(docItem.name) }} className="w-full text-left p-4 bg-blue-50 rounded-2xl font-bold uppercase text-xs">
+                        {docItem.name} <span className="text-blue-500">— {docItem.city}</span>
                       </button>
                     ))}
                   </div>
@@ -176,15 +181,15 @@ export default function PlanningPage() {
 
             {selectedDoctor && (
               <div className={`p-8 rounded-[40px] shadow-xl border-2 transition-all ${editingId ? 'bg-orange-50 border-orange-400' : 'bg-white border-blue-600'}`}>
-                <div className="flex justify-between mb-6">
+                <div className="flex justify-between items-start mb-6">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
                     <div>
-                      <h2 className="text-xl font-black text-gray-900 uppercase">{selectedDoctor.name}</h2>
+                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{selectedDoctor.name}</h2>
                       <p className="text-[10px] font-bold text-gray-400 uppercase">{selectedDoctor.specialty} | {selectedDoctor.city}</p>
                     </div>
                   </div>
-                  <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full"><X size={16}/></button>
+                  <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
@@ -198,8 +203,8 @@ export default function PlanningPage() {
                   <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
                   <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
                 </div>
-                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase py-5 rounded-2xl shadow-lg ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}>
-                  {saving ? <Loader2 className="animate-spin m-auto" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
+                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}>
+                  {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
                 </button>
                 {editingId && (
                   <button onClick={handleDeleteVisit} className="w-full mt-3 text-red-600 bg-red-50 py-3 rounded-xl text-[10px] font-bold uppercase">Eliminar Cita</button>
@@ -212,16 +217,22 @@ export default function PlanningPage() {
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
-              const vsts = getVisitsForDay(d)
+              const currentDStr = `2026-04-${d.toString().padStart(2, '0')}`
+              const visitsOnDay = plannedVisits.filter(v => v.visitDate === currentDStr)
               return (
-                <div key={d} className={`bg-white p-3 rounded-[30px] border min-h-[120px] flex flex-col ${vsts.length > 0 ? 'border-blue-500 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
-                  <span className={`text-[11px] font-black mb-2 ${vsts.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / 04</span>
-                  {vsts.map((v, i) => (
-                    <button key={i} onClick={() => startEdit(v)} className="bg-blue-600 text-white p-1.5 rounded-lg text-[9px] font-black uppercase truncate mb-1 flex justify-between items-center">
-                      <span className="truncate">{v.doctorName}</span>
-                      <Pencil size={8} className="ml-1" />
-                    </button>
-                  ))}
+                <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visitsOnDay.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
+                  <span className={`text-[11px] font-black mb-2 ${visitsOnDay.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / 04</span>
+                  <div className="flex flex-col gap-1.5">
+                    {visitsOnDay.map((v, idx) => (
+                      <button key={idx} onClick={() => startEdit(v)} className="group bg-blue-600 text-white p-1.5 rounded-lg text-left px-2 flex justify-between items-center hover:bg-blue-700">
+                        <div className="flex flex-col truncate flex-1">
+                          <span className="text-[9px] font-black uppercase truncate">{v.doctorName}</span>
+                          {(v.startTime || v.endTime) && <span className="text-[6.5px] text-blue-200">{v.startTime || '--:--'} {v.endTime ? `- ${v.endTime}` : ''}</span>}
+                        </div>
+                        <Pencil size={8} className="opacity-0 group-hover:opacity-100 flex-shrink-0" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )
             })}
