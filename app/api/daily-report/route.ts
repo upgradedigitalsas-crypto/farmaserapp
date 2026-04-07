@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 
-// 1. Inicialización del "Pase VIP" (Admin SDK) igual que ayer
 if (!admin.apps.length) {
   try {
     const rawKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -26,7 +25,6 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    // 2. Candado de seguridad de la URL
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
     
@@ -34,15 +32,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
-    // 3. Fecha en Zona Horaria de Colombia
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
     const adminEmail = 'entrenamientofarmaser@gmail.com';
 
-    // 4. Buscar Visitas Planeadas (Usando Admin SDK)
+    // Buscar actividad de hoy
     const plannedSnap = await db.collection('planned_visits').where('visitDate', '==', today).get();
     const plannedVisits = plannedSnap.docs.map(d => d.data());
 
-    // 5. Buscar Visitas Reales (Usando Admin SDK)
     const realSnap = await db.collection('visits').where('date', '==', today).get();
     const realVisits = realSnap.docs.map(d => d.data());
 
@@ -50,7 +46,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ message: `Sin actividad reportada para el dia ${today}` });
     }
 
-    // 6. Construir tabla
     let tableRows = '';
     const allActivity = [
       ...plannedVisits.map(v => ({...v, type: 'Planeada'})), 
@@ -89,12 +84,11 @@ export async function GET(request: Request) {
             ${tableRows}
           </tbody>
         </table>
-        <p style="margin-top: 30px; font-size: 10px; color: #999; text-align: center;">Generado automáticamente por Farmaser CRM</p>
       </div>
     `;
 
-    // 7. Enviar vía Brevo
-    await fetch('https://api.brevo.com/v3/smtp/email', {
+    // Envío usando el remitente verificado notificaciones@gestiondiariafarmaser.com
+    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
@@ -102,15 +96,21 @@ export async function GET(request: Request) {
         'api-key': process.env.BREVO_API_KEY as string,
       },
       body: JSON.stringify({
-        sender: { name: "Sistema Farmaser", email: "no-reply@gestiondiariafarmaser.com" },
+        sender: { name: "Gestion Diaria Farmaser", email: "notificaciones@gestiondiariafarmaser.com" }, 
         to: [{ email: adminEmail }],
         subject: `📊 Reporte Diario de Citas - ${today}`,
         htmlContent: htmlContent
       }),
     });
 
-    return NextResponse.json({ success: true, message: 'Reporte enviado con éxito a ' + adminEmail, date: today });
+    const brevoResult = await brevoResponse.json();
+
+    if (!brevoResponse.ok) {
+      throw new Error(`Brevo rechazó el envío: ${JSON.stringify(brevoResult)}`);
+    }
+
+    return NextResponse.json({ success: true, message: '¡Reporte enviado!', brevo: brevoResult });
   } catch (error: any) {
-    return NextResponse.json({ error: "Error de Servidor Admin", detail: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Error en el servidor", detail: error.message }, { status: 500 });
   }
 }
