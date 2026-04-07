@@ -25,10 +25,12 @@ export default function MedicalCentersPage() {
     return myDocs.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.specialty.toLowerCase().includes(searchTerm.toLowerCase()))
   }, [myDocs, searchTerm])
 
-  const exportCSV = () => {
-    // Añadimos BOM para que Excel lea las tildes, y agregamos columnas de Categoría y Dirección
+  // FUNCIÓN DINÁMICA: Recibe los datos a exportar y el nombre del archivo
+  const exportCSV = (dataToExport: any[], fileName: string) => {
+    if (dataToExport.length === 0) return alert('No hay datos para exportar.');
+
     const headers = ['ID', 'Categoria', 'Nombre', 'Especialidad', 'Ciudad', 'Direccion'];
-    const rows = filteredDocs.map(d => {
+    const rows = dataToExport.map(d => {
       return [
         d.id,
         d.category || 'N/A',
@@ -44,7 +46,7 @@ export default function MedicalCentersPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", "base_asignada_completa.csv");
+    link.setAttribute("download", fileName);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -53,10 +55,29 @@ export default function MedicalCentersPage() {
   if (loading) return <div className="ml-64 p-20 text-center font-black text-gray-300">CARGANDO...</div>
 
   return (
-    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px]   min-h-screen bg-[#F8FAFC]">
-      <header className="flex justify-between items-center mb-10">
-        <div><h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Mi Base Asignada</h1></div>
-        <button onClick={exportCSV} className="bg-blue-600 text-white text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"><Download size={16} /> Exportar Base</button>
+    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
+      <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-6">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Mi Base Asignada</h1>
+          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2">Total en cartera: {myDocs.length}</p>
+        </div>
+        
+        {/* BOTONES DE EXPORTACIÓN UX/UI */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+          <button 
+            onClick={() => exportCSV(filteredDocs, 'Base_Filtrada.csv')} 
+            className="w-full sm:w-auto bg-white border-2 border-gray-200 text-gray-600 text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:bg-gray-50 hover:border-gray-300 transition-all"
+          >
+            <Download size={16} /> Exportar Filtro ({filteredDocs.length})
+          </button>
+          
+          <button 
+            onClick={() => exportCSV(myDocs, 'Directorio_Completo_Visitador.csv')} 
+            className="w-full sm:w-auto bg-blue-600 text-white text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 hover:bg-blue-700 active:scale-95 transition-all"
+          >
+            <Download size={16} /> Exportar Toda La Base
+          </button>
+        </div>
       </header>
       
       <div className="relative mb-10">
