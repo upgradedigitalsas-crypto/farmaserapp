@@ -13,7 +13,7 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
 
   if (loading) return null;
 
-  // AQUI DAMOS EL PASE VIP A LAS RUTAS API (CRON JOBS)
+  // 🛡️ EXCEPCIÓN PARA CRON JOBS Y APIs
   const isApiRoute = pathname?.startsWith('/api/');
   const isLoginPage = (!isApiRoute && pathname === '/login') || (!isApiRoute && !user);
 
@@ -21,7 +21,7 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen bg-gray-50">{children}</div>;
   }
 
-  // SI ES UNA RUTA API, RENDERIZA DIRECTAMENTE SIN EL SIDEBAR VISUAL
+  // Si es API, renderiza el contenido puro (JSON) sin interfaz de usuario
   if (isApiRoute) {
     return <>{children}</>;
   }
@@ -34,9 +34,11 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
       >
         <Menu size={24} />
       </button>
+
       <aside className="hidden lg:flex w-64 h-full flex-shrink-0">
         <Sidebar />
       </aside>
+
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="fixed inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)}></div>
@@ -48,6 +50,7 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
+
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <div className="flex-1 overflow-y-auto w-full">
           {children}
