@@ -22,10 +22,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    // 🛡️ SEGURIDAD CRON VERCEL
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Acceso denegado. Solo Vercel puede ejecutar esto.' }, { status: 401 });
+    // Volvemos a la validación segura por URL
+    const { searchParams } = new URL(request.url);
+    if (searchParams.get('token') !== 'farmaser-cron-secreto-2026') {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
