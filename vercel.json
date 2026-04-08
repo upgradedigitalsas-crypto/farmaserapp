@@ -1,11 +1,11 @@
 {
   "crons": [
     {
-      "path": "/api/daily-report?token=farmaser-cron-secreto-2026",
+      "path": "/api/daily-report",
       "schedule": "0 23 * * *"
     },
     {
-      "path": "/api/daily-reminders?token=farmaser_admin_123",
+      "path": "/api/daily-reminders",
       "schedule": "30 22 * * *"
     }
   ]
