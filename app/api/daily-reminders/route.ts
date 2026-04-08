@@ -22,94 +22,69 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    if (searchParams.get('token') !== 'farmaser_admin_123') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    // 🛡️ SEGURIDAD CRON VERCEL
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return NextResponse.json({ error: 'Acceso denegado. Solo Vercel puede ejecutar esto.' }, { status: 401 });
     }
 
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const todayObj = new Date();
+    todayObj.setDate(todayObj.getDate() + 1);
+    const tomorrowStr = todayObj.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 
-    const snap = await db.collection('planned_visits')
-      .where('visitDate', '==', tomorrowStr)
-      .where('status', '==', 'Planeada')
-      .get();
-
-    if (snap.empty) return NextResponse.json({ message: 'No hay citas para mañana' });
+    const snapshot = await db.collection('planned_visits').where('visitDate', '==', tomorrowStr).get();
+    
+    if (snapshot.empty) {
+      return NextResponse.json({ message: `No hay rutas programadas para ${tomorrowStr}` });
+    }
 
     const visitsByRep: Record<string, any[]> = {};
-    snap.docs.forEach(doc => {
-      const v = doc.data();
-      const email = v.userEmail?.toLowerCase().trim();
-      if (email) {
-        if (!visitsByRep[email]) visitsByRep[email] = [];
-        visitsByRep[email].push(v);
-      }
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const email = data.userEmail;
+      if (!visitsByRep[email]) visitsByRep[email] = [];
+      visitsByRep[email].push(data);
     });
 
-    const emailPromises = Object.keys(visitsByRep).map(async (email) => {
-      const repVisits = visitsByRep[email];
-      repVisits.sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
+    const emailPromises = Object.keys(visitsByRep).map(async (repEmail) => {
+      const visits = visitsByRep[repEmail].sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'));
 
-      let tableRows = '';
-      repVisits.forEach(v => {
-        const detail = v.doctorDetails || {};
-        
-        // 🛠️ TRATAMIENTO DE DIRECCIÓN (Misma lógica de Cartera)
-        const direccion = detail.address || detail.direccion || '';
-        const barrio = detail.neighborhood || detail.barrio || '';
-        
-        // Si la dirección es "Principal", intentamos usar el barrio. 
-        // Si no hay barrio, dejamos "Principal" para no dejarlo vacío.
-        let dirFinal = '';
-        if (direccion === 'Principal') {
-           dirFinal = barrio || 'Principal';
-        } else {
-           dirFinal = `${direccion} ${barrio}`.trim();
-        }
+      let htmlContent = `
+        <div style="font-family:sans-serif;max-width:600px;margin:auto;border:1px solid #eee;border-radius:20px;padding:30px;">
+          <h2 style="color:#2563eb;text-align:center;font-size:24px;margin-bottom:10px;">¡Prepara tu día de mañana! 🚀</h2>
+          <p style="text-align:center;color:#64748b;font-size:14px;margin-bottom:30px;">Aquí tienes tu itinerario programado para el <strong>${tomorrowStr}</strong>.</p>
+          <div style="display:flex;flex-direction:column;gap:15px;">
+      `;
 
-        tableRows += `
-          <tr>
-            <td style="padding:10px;border-bottom:1px solid #eee;"><strong>${v.startTime || '--:--'}</strong></td>
-            <td style="padding:10px;border-bottom:1px solid #eee;">${v.doctorName || 'N/A'}</td>
-            <td style="padding:10px;border-bottom:1px solid #eee;">${detail.category || 'A'}</td>
-            <td style="padding:10px;border-bottom:1px solid #eee;">${detail.city || 'N/A'}</td>
-            <td style="padding:10px;border-bottom:1px solid #eee;font-size:11px;color:#2563eb;font-weight:bold;text-transform:uppercase;">${dirFinal}</td>
-          </tr>`;
+      visits.forEach((v, index) => {
+        htmlContent += `
+          <div style="background:#f8fafc;border-left:4px solid #3b82f6;padding:20px;border-radius:0 15px 15px 0;">
+            <p style="margin:0;font-size:12px;color:#3b82f6;font-weight:900;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🕒 ${v.startTime || 'Sin hora'} ${v.endTime ? ` - ${v.endTime}` : ''}</p>
+            <p style="margin:0;font-size:18px;font-weight:900;color:#0f172a;text-transform:uppercase;">${v.doctorName}</p>
+            <p style="margin:5px 0 0 0;font-size:12px;color:#64748b;font-weight:bold;text-transform:uppercase;">
+               📍 ${v.doctorDetails?.address || 'Dirección no registrada'} — ${v.doctorDetails?.city || ''}
+            </p>
+          </div>
+        `;
       });
+
+      htmlContent += `
+          </div>
+          <div style="margin-top:40px;text-align:center;">
+            <a href="https://www.gestiondiariafarmaser.com/reports" style="background:#2563eb;color:white;padding:15px 25px;text-decoration:none;border-radius:10px;font-weight:bold;font-size:13px;text-transform:uppercase;">IR A LA APP PARA REPORTAR</a>
+          </div>
+          <p style="margin-top:30px;font-size:10px;color:#94a3b8;text-align:center;text-transform:uppercase;">Sistema de Notificaciones Automáticas Farmaser</p>
+        </div>`;
 
       return fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'api-key': process.env.BREVO_API_KEY as string,
-        },
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'api-key': process.env.BREVO_API_KEY as string },
         body: JSON.stringify({
-          sender: { name: "Gestion Farmaser", email: "notificaciones@gestiondiariafarmaser.com" },
-          to: [{ email: email }],
-          subject: `📋 Recordatorio: Tu Ruta de Mañana (${tomorrowStr})`,
-          htmlContent: `
-            <div style="font-family:sans-serif;max-width:800px;margin:auto;border:1px solid #eee;padding:20px;border-radius:15px;">
-              <h2 style="color:#1e3a8a;text-align:center;text-transform:uppercase;font-style:italic;">Hoja de Ruta - Mañana</h2>
-              <p style="color:#64748b;font-size:14px;">Hola, este es tu recordatorio de visitas programadas para mañana <strong>${tomorrowStr}</strong>:</p>
-              <table style="width:100%;border-collapse:collapse;font-size:11px;margin-top:20px;">
-                <thead>
-                  <tr style="background:#f8fafc;text-align:left;color:#475569;text-transform:uppercase;font-size:10px;">
-                    <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Hora</th>
-                    <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Médico/Droguería</th>
-                    <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Cat.</th>
-                    <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Ciudad</th>
-                    <th style="padding:12px;border-bottom:2px solid #e2e8f0;">Dirección Completa (Columna E)</th>
-                  </tr>
-                </thead>
-                <tbody>${tableRows}</tbody>
-              </table>
-              <div style="margin-top:40px;text-align:center;">
-                <a href="https://www.gestiondiariafarmaser.com/reports" style="background:#2563eb;color:white;padding:15px 25px;text-decoration:none;border-radius:10px;font-weight:bold;font-size:13px;text-transform:uppercase;">IR A LA APP PARA REPORTAR</a>
-              </div>
-            </div>`
+          sender: { name: "Gestion Diaria Farmaser", email: "notificaciones@gestiondiariafarmaser.com" },
+          to: [{ email: repEmail }],
+          subject: `📋 Tu Ruta para Mañana (${tomorrowStr})`,
+          htmlContent: htmlContent
         }),
       });
     });
