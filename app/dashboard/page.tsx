@@ -41,22 +41,38 @@ export default function DashboardPage() {
         const targetEmail = isAdmin ? selectedRep : user.email.toLowerCase().trim()
 
         const visitsRef = collection(db, 'planned_visits')
-        const qVisits = query(visitsRef, where('visitDate', '>=', startOfMonthStr), where('visitDate', '<=', endOfMonthStr))
-        const vSnap = await getDocs(qVisits)
-        const rawVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-
         const reportsRef = collection(db, 'visit_reports')
-        const qReports = query(reportsRef, where('reportedAt', '>=', startDate), where('reportedAt', '<=', endDate))
-        const rSnap = await getDocs(qReports)
-        const rawReports = rSnap.docs.map(d => d.data())
+
+        let finalVisits: any[] = []
+        let finalReports: any[] = []
 
         if (isAdmin && selectedRep === 'Todos') {
-          setVisits(rawVisits)
-          setReports(rawReports)
+          // ADMIN GLOBAL: Firebase lo permite, pedimos todo por fecha para sumar a toda la empresa
+          const qVisits = query(visitsRef, where('visitDate', '>=', startOfMonthStr), where('visitDate', '<=', endOfMonthStr))
+          const vSnap = await getDocs(qVisits)
+          finalVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+          const qReports = query(reportsRef, where('reportedAt', '>=', startDate), where('reportedAt', '<=', endDate))
+          const rSnap = await getDocs(qReports)
+          finalReports = rSnap.docs.map(d => d.data())
         } else {
-          setVisits(rawVisits.filter((v: any) => String(v.userEmail || '').toLowerCase().trim() === targetEmail))
-          setReports(rawReports.filter((r: any) => String(r.userEmail || '').toLowerCase().trim() === targetEmail))
+          // INDIVIDUAL (Visitadores): OBLIGATORIO pedir solo por su email por las Reglas de Firebase
+          const qVisits = query(visitsRef, where('userEmail', '==', targetEmail))
+          const vSnap = await getDocs(qVisits)
+          // Luego filtramos las fechas del mes aquí mismo
+          finalVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((v: any) => v.visitDate >= startOfMonthStr && v.visitDate <= endOfMonthStr)
+
+          const qReports = query(reportsRef, where('userEmail', '==', targetEmail))
+          const rSnap = await getDocs(qReports)
+          // Luego filtramos las fechas del mes aquí mismo
+          finalReports = rSnap.docs.map(d => d.data()).filter((r: any) => {
+            const rDate = r.reportedAt?.toDate ? r.reportedAt.toDate() : new Date(r.reportedAt)
+            return rDate >= startDate && rDate <= endDate
+          })
         }
+
+        setVisits(finalVisits)
+        setReports(finalReports)
 
       } catch (e) {
         console.error('Error cargando dashboard:', e)
