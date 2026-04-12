@@ -32,7 +32,8 @@ export async function getDoctorsFromSheet() {
       id: row[0] || Math.random().toString(), 
       visitadorId: row[0] || '',             
       name: row[2] || '',                    
-      address: row[4] || '',  // AQUI AGREGAMOS LA COLUMNA E (DIRECCION)              
+      address: row[4] || '',  // Columna E (Dirección)             
+      phone: row[5] || '',    // <-- ¡AQUÍ ESTÁ LA MAGIA! COLUMNA F (Teléfono)
       city: row[6] || '',                    
       specialty: row[7] || '',               
       category: row[8] || '',                
