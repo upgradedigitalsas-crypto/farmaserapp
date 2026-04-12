@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { Search, User, Filter, Calendar, Zap, Loader2, X, Lock, Pencil, Trash2 } from 'lucide-react'
+import { Search, User, Filter, Calendar, Zap, Loader2, X, Lock, Pencil, Trash2, Phone } from 'lucide-react'
 
 const getFingerprintLocation = () => {
   return new Promise((resolve) => {
@@ -74,7 +74,8 @@ export default function PlanningPage() {
           category: selectedDoctor.category || '',
           specialty: selectedDoctor.specialty || '',
           city: selectedDoctor.city || '',
-          address: selectedDoctor.address || ''
+          address: selectedDoctor.address || '',
+          phone: selectedDoctor.phone || '' // <-- SE AGREGA EL TELÉFONO AQUÍ
         },
         visitDate,
         startTime,
@@ -107,16 +108,12 @@ export default function PlanningPage() {
 
   const startEdit = (v: any) => {
     setEditingId(v.id)
-    
-    // TRUCO MAGICO: Buscar al medico en la base de datos fresca para traer la direccion real actual
     const freshDoctor = doctors.find(d => d.id === v.doctorId);
-    
     if (freshDoctor) {
-      setSelectedDoctor({ ...freshDoctor, name: v.doctorName }) // Usa datos frescos (incluye Columna E)
+      setSelectedDoctor({ ...freshDoctor, name: v.doctorName }) 
     } else {
-      setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails }) // Fallback a lo guardado
+      setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails }) 
     }
-    
     setVisitDate(v.visitDate); setStartTime(v.startTime || ''); setEndTime(v.endTime || ''); setStatus(v.status)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -193,11 +190,28 @@ export default function PlanningPage() {
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
                     <div>
                       <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{selectedDoctor.name}</h2>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
-                        {selectedDoctor.category && <span className="text-blue-500">CAT: {selectedDoctor.category} • </span>}
-                        {selectedDoctor.specialty} • {selectedDoctor.city}
-                        {selectedDoctor.address && selectedDoctor.address !== 'Principal' && <span> • DIR: {selectedDoctor.address}</span>}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-gray-400 uppercase mt-1">
+                        {selectedDoctor.category && <span className="text-blue-500">CAT: {selectedDoctor.category}</span>}
+                        <span className="opacity-20">|</span>
+                        <span>{selectedDoctor.specialty}</span>
+                        <span className="opacity-20">|</span>
+                        <span>{selectedDoctor.city}</span>
+                        {selectedDoctor.address && selectedDoctor.address !== 'Principal' && (
+                          <>
+                            <span className="opacity-20">|</span>
+                            <span>DIR: {selectedDoctor.address}</span>
+                          </>
+                        )}
+                        {/* AQUÍ SE MUESTRA EL TELÉFONO */}
+                        {selectedDoctor.phone && (
+                          <>
+                            <span className="opacity-20">|</span>
+                            <span className="flex items-center gap-1 text-green-600 font-black">
+                              <Phone size={10} fill="currentColor" /> {selectedDoctor.phone}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
