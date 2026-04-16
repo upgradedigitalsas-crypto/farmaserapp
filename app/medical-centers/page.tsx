@@ -1,13 +1,19 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
-import { Search, MapPin, User, Star, Download, Navigation, Phone } from 'lucide-react'
+import { Search, MapPin, User, Star, Download, Navigation, Phone, Filter } from 'lucide-react'
 
 export default function MedicalCentersPage() {
   const { user } = useAuthStore()
   const [doctors, setDoctors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  
+  // NUEVO: Estado para el filtro del Super Admin
+  const [selectedRepFilter, setSelectedRepFilter] = useState('Todos')
+
+  // NUEVO: Validación de Super Admin
+  const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
 
   useEffect(() => {
     fetch('/api/doctors').then(res => res.json()).then(data => {
@@ -16,15 +22,33 @@ export default function MedicalCentersPage() {
     }).catch(() => setLoading(false))
   }, [])
 
-  const myDocs = useMemo(() => {
-    const email = user?.email?.toLowerCase().trim()
-    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email)
-  }, [doctors, user])
+  // NUEVO: Generar lista de visitadores solo para el Admin
+  const repsList = useMemo(() => {
+    if (!isAdmin) return []
+    return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#')))).sort()
+  }, [doctors, isAdmin])
 
+  // AJUSTE: Reemplaza "myDocs" para que se adapte al rol
+  const baseDocs = useMemo(() => {
+    if (!isAdmin) {
+      // Visitador normal: Ve exactamente lo mismo que antes (su correo)
+      const email = user?.email?.toLowerCase().trim()
+      return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email)
+    } else {
+      // Admin: Ve toda la empresa o filtra por el dropdown
+      if (selectedRepFilter === 'Todos') return doctors
+      return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === selectedRepFilter)
+    }
+  }, [doctors, user, isAdmin, selectedRepFilter])
+
+  // AJUSTE: El buscador ahora usa baseDocs
   const filteredDocs = useMemo(() => {
-    return myDocs.filter(d => d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.specialty.toLowerCase().includes(searchTerm.toLowerCase()))
-  }, [myDocs, searchTerm])
+    if (!searchTerm) return baseDocs
+    const t = searchTerm.toLowerCase()
+    return baseDocs.filter(d => d.name.toLowerCase().includes(t) || d.specialty.toLowerCase().includes(t))
+  }, [baseDocs, searchTerm])
 
+  // INTACTO: La función de exportar no se tocó
   const exportCSV = (dataToExport: any[], fileName: string) => {
     if (dataToExport.length === 0) return alert('No hay datos para exportar.');
 
@@ -37,7 +61,7 @@ export default function MedicalCentersPage() {
         `"${d.specialty || ''}"`,
         `"${d.city || ''}"`,
         `"${d.address || 'Principal'}"`,
-        `"${d.phone || ''}"` // <-- Agregado a la exportación
+        `"${d.phone || ''}"` 
       ].join(',');
     });
     
@@ -58,11 +82,31 @@ export default function MedicalCentersPage() {
     <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
       <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-6">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Mi Base Asignada</h1>
-          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2">Total en cartera: {myDocs.length}</p>
+          <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">
+            {isAdmin ? 'Directorio Maestro' : 'Mi Base Asignada'}
+          </h1>
+          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2">Total en cartera: {baseDocs.length}</p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
+          
+          {/* NUEVO: Dropdown de filtro solo visible para Super Admin */}
+          {isAdmin && (
+            <div className="bg-white border-2 border-indigo-100 p-2 rounded-xl flex items-center gap-2 w-full sm:w-auto mr-2">
+              <Filter size={16} className="text-indigo-600 ml-2" />
+              <select 
+                value={selectedRepFilter} 
+                onChange={(e) => setSelectedRepFilter(e.target.value)}
+                className="text-[10px] font-black uppercase text-gray-700 bg-transparent outline-none cursor-pointer pr-4"
+              >
+                <option value="Todos">Toda La Empresa</option>
+                {repsList.map((rep) => (
+                  <option key={rep} value={rep}>{rep}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button 
             onClick={() => exportCSV(filteredDocs, 'Base_Filtrada.csv')} 
             className="w-full sm:w-auto bg-white border-2 border-gray-200 text-gray-600 text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-all"
@@ -71,7 +115,7 @@ export default function MedicalCentersPage() {
           </button>
           
           <button 
-            onClick={() => exportCSV(myDocs, 'Directorio_Completo_Visitador.csv')} 
+            onClick={() => exportCSV(baseDocs, isAdmin ? 'Directorio_Empresa.csv' : 'Directorio_Visitador.csv')} 
             className="w-full sm:w-auto bg-blue-600 text-white text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 hover:bg-blue-700 active:scale-95 transition-all"
           >
             <Download size={16} /> Exportar Toda La Base
@@ -111,13 +155,21 @@ export default function MedicalCentersPage() {
                     <span className="text-[11px] font-bold uppercase">{doc.address}</span>
                   </div>
                   
-                  {/* AQUÍ SE MUESTRA EL TELÉFONO */}
                   {doc.phone && (
                     <div className="flex items-center gap-1 text-green-600">
                       <Phone size={12} fill="currentColor" className="opacity-80" />
                       <span className="text-[11px] font-black uppercase">{doc.phone}</span>
                     </div>
                   )}
+
+                  {/* NUEVO: Pequeña etiqueta visual para el Admin de a quién pertenece el médico */}
+                  {isAdmin && selectedRepFilter === 'Todos' && doc.assignedTo && (
+                    <div className="flex items-center gap-1 text-indigo-400 border-l pl-4 ml-2">
+                      <User size={12} />
+                      <span className="text-[10px] font-black uppercase italic">{doc.assignedTo}</span>
+                    </div>
+                  )}
+
                 </div>
               </div>
             </div>
