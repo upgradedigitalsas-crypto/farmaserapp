@@ -75,7 +75,7 @@ export default function PlanningPage() {
           specialty: selectedDoctor.specialty || '',
           city: selectedDoctor.city || '',
           address: selectedDoctor.address || '',
-          phone: selectedDoctor.phone || '' // <-- SE AGREGA EL TELÉFONO AQUÍ
+          phone: selectedDoctor.phone || '' 
         },
         visitDate,
         startTime,
@@ -129,10 +129,21 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email && !planned.has(String(d.name || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name))
   }, [doctors, user, selectedRep, isAdmin, plannedVisits])
 
+  // --- EL AJUSTE ESTÁ AQUÍ ---
+  // Hacemos que el filtro sea mucho más estricto. Solo busca en el NOMBRE del médico.
+  // Y usa la frase completa.
   const myDocsFiltered = useMemo(() => {
     if (!searchTerm || selectedDoctor) return []
-    const t = searchTerm.toLowerCase()
-    return myFullDocsList.filter((d: any) => d.name?.toLowerCase().includes(t) || d.city?.toLowerCase().includes(t))
+    const t = searchTerm.toLowerCase().trim()
+    
+    return myFullDocsList.filter((d: any) => {
+       const docName = String(d.name || '').toLowerCase();
+       // Opcional: Si quieres que también busque por ciudad estrictamente, descomenta la siguiente línea:
+       // const docCity = String(d.city || '').toLowerCase();
+       
+       // Por ahora, solo buscará coincidencias exactas dentro del nombre.
+       return docName.includes(t); 
+    })
   }, [myFullDocsList, searchTerm, selectedDoctor])
 
   const days = Array.from({length: 30}, (_, i) => i + 1)
@@ -169,7 +180,8 @@ export default function PlanningPage() {
                 </select>
                 <div className="relative mt-6">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Buscar..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  {/* Actualizamos el placeholder para que sea más claro */}
+                  <input type="text" placeholder="Buscar médico por nombre exacto..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 {searchTerm && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
@@ -202,7 +214,6 @@ export default function PlanningPage() {
                             <span>DIR: {selectedDoctor.address}</span>
                           </>
                         )}
-                        {/* AQUÍ SE MUESTRA EL TELÉFONO */}
                         {selectedDoctor.phone && (
                           <>
                             <span className="opacity-20">|</span>
