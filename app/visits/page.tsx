@@ -21,12 +21,6 @@ const getFingerprintLocation = () => {
   });
 };
 
-// HERRAMIENTA: Ignora tildes y mayúsculas
-const normalizeStr = (str: string) => {
-  if (!str) return '';
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-};
-
 export default function PlanningPage() {
   const { user, selectedRep, setSelectedRep } = useAuthStore()
   const [doctors, setDoctors] = useState<any[]>([])
@@ -135,20 +129,18 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email && !planned.has(String(d.name || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name))
   }, [doctors, user, selectedRep, isAdmin, plannedVisits])
 
-  // BUSCADOR INTELIGENTE: Condicional EXACTA ("Y") buscando en Nombre, Ciudad y Especialidad
+  // LÓGICA CLONADA EXACTAMENTE DE MEDICAL-CENTERS (Búsqueda de Frase Exacta)
   const myDocsFiltered = useMemo(() => {
     if (!searchTerm || selectedDoctor) return []
     
-    // Separa las palabras (ej: ["esmeralda", "espitia"] o ["pediatra", "medellin"])
-    const searchWords = normalizeStr(searchTerm).split(/\s+/)
+    // Convertimos la búsqueda a minúsculas, sin separarla ni hacerle magia rara
+    const t = searchTerm.toLowerCase()
     
-    return myFullDocsList.filter((d: any) => {
-       // Unimos los 3 criterios principales en un solo texto invisible
-       const combinedData = normalizeStr(`${d.name} ${d.city} ${d.specialty}`)
-       
-       // EXIGIMOS que TODAS las palabras que el usuario escribió existan en esos datos
-       return searchWords.every(word => combinedData.includes(word))
-    })
+    return myFullDocsList.filter(d => 
+      String(d.name || '').toLowerCase().includes(t) || 
+      String(d.specialty || '').toLowerCase().includes(t) ||
+      String(d.city || '').toLowerCase().includes(t)
+    )
   }, [myFullDocsList, searchTerm, selectedDoctor])
 
   const days = Array.from({length: 30}, (_, i) => i + 1)
@@ -177,7 +169,7 @@ export default function PlanningPage() {
             {!editingId && (
               <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 
-                {/* BARRA DESPLEGABLE INTACTA */}
+                {/* LA BARRA DESPLEGABLE SE MANTIENE AQUÍ INTACTA */}
                 <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
                   const docFound = myFullDocsList.find((d:any) => d.id === e.target.value)
                   if (docFound) { setSelectedDoctor(docFound); setSearchTerm(docFound.name) }
