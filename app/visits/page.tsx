@@ -21,6 +21,12 @@ const getFingerprintLocation = () => {
   });
 };
 
+// HERRAMIENTA: Ignora tildes y mayúsculas
+const normalizeStr = (str: string) => {
+  if (!str) return '';
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+};
+
 export default function PlanningPage() {
   const { user, selectedRep, setSelectedRep } = useAuthStore()
   const [doctors, setDoctors] = useState<any[]>([])
@@ -129,18 +135,19 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email && !planned.has(String(d.name || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name))
   }, [doctors, user, selectedRep, isAdmin, plannedVisits])
 
-  // --- FILTRO ESTRICTO MULTI-PALABRA ---
+  // BUSCADOR INTELIGENTE: Condicional EXACTA ("Y") buscando en Nombre, Ciudad y Especialidad
   const myDocsFiltered = useMemo(() => {
     if (!searchTerm || selectedDoctor) return []
     
-    // Separamos la búsqueda por espacios (Ej: "Esmeralda Espitia" se vuelve ["esmeralda", "espitia"])
-    const searchWords = searchTerm.toLowerCase().trim().split(/\s+/)
+    // Separa las palabras (ej: ["esmeralda", "espitia"] o ["pediatra", "medellin"])
+    const searchWords = normalizeStr(searchTerm).split(/\s+/)
     
     return myFullDocsList.filter((d: any) => {
-       const docName = String(d.name || '').toLowerCase()
+       // Unimos los 3 criterios principales en un solo texto invisible
+       const combinedData = normalizeStr(`${d.name} ${d.city} ${d.specialty}`)
        
-       // Exigimos que EL NOMBRE contenga TODAS las palabras que el usuario escribió
-       return searchWords.every(word => docName.includes(word))
+       // EXIGIMOS que TODAS las palabras que el usuario escribió existan en esos datos
+       return searchWords.every(word => combinedData.includes(word))
     })
   }, [myFullDocsList, searchTerm, selectedDoctor])
 
@@ -169,6 +176,8 @@ export default function PlanningPage() {
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+                
+                {/* BARRA DESPLEGABLE INTACTA */}
                 <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
                   const docFound = myFullDocsList.find((d:any) => d.id === e.target.value)
                   if (docFound) { setSelectedDoctor(docFound); setSearchTerm(docFound.name) }
@@ -176,17 +185,23 @@ export default function PlanningPage() {
                   <option value="">-- Seleccionar Médico --</option>
                   {myFullDocsList.map((docItem:any) => <option key={docItem.id} value={docItem.id}>{docItem.name} — {docItem.city}</option>)}
                 </select>
+                
                 <div className="relative mt-6">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Buscar médico (Ej: Espitia)..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Buscar por nombre, ciudad o especialidad..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
+                
                 {searchTerm && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
-                    {myDocsFiltered.map((docItem:any) => (
-                      <button key={docItem.id} onClick={() => { setSelectedDoctor(docItem); setSearchTerm(docItem.name) }} className="w-full text-left p-4 bg-blue-50 rounded-2xl font-bold uppercase text-xs">
-                        {docItem.name} <span className="text-blue-500">— {docItem.city}</span>
-                      </button>
-                    ))}
+                    {myDocsFiltered.length === 0 ? (
+                       <p className="text-center text-xs font-bold text-gray-400 py-4 uppercase">No hay coincidencias o ya fue agendado este mes.</p>
+                    ) : (
+                      myDocsFiltered.map((docItem:any) => (
+                        <button key={docItem.id} onClick={() => { setSelectedDoctor(docItem); setSearchTerm(docItem.name) }} className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl font-bold uppercase text-xs transition-colors">
+                          {docItem.name} <span className="text-blue-500">— {docItem.city}</span> <span className="text-gray-400 font-medium">• {docItem.specialty}</span>
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
@@ -247,7 +262,6 @@ export default function PlanningPage() {
           </div>
         )}
 
-        {/* ... Calendario abajo ... */}
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
