@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { Search, User, Filter, Calendar, Zap, Loader2, X, Lock, Pencil, Trash2, Phone } from 'lucide-react'
+import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone } from 'lucide-react'
 
 const getFingerprintLocation = () => {
   return new Promise((resolve) => {
@@ -21,10 +21,9 @@ const getFingerprintLocation = () => {
   });
 };
 
-// HERRAMIENTA MAESTRA: Quita tildes, mayúsculas y espacios extra
 const normalizeStr = (str: string) => {
   if (!str) return '';
-  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 };
 
 export default function PlanningPage() {
@@ -33,8 +32,14 @@ export default function PlanningPage() {
   const [plannedVisits, setPlannedVisits] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
   const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
+  
+  // NUEVOS ESTADOS PARA LOS FILTROS E-COMMERCE
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filterCity, setFilterCity] = useState('')
+  const [filterSpecialty, setFilterSpecialty] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
+
   const [visitDate, setVisitDate] = useState('2026-04-01')
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
@@ -99,7 +104,7 @@ export default function PlanningPage() {
       } else {
         await addDoc(collection(db, 'planned_visits'), { ...visitData, createdAt: Timestamp.now() })
       }
-      resetForm(); fetchData(); alert('Guardado con éxito')
+      clearFilters(); resetForm(); fetchData(); alert('Guardado con éxito')
     } catch (e) { alert('Error al guardar') } finally { setSaving(false) }
   }
 
@@ -108,7 +113,7 @@ export default function PlanningPage() {
     setSaving(true)
     try {
       await deleteDoc(doc(db, 'planned_visits', editingId))
-      resetForm(); fetchData(); alert('Cita eliminada')
+      clearFilters(); resetForm(); fetchData(); alert('Cita eliminada')
     } catch (e) { alert('Error al eliminar') } finally { setSaving(false) }
   }
 
@@ -125,7 +130,11 @@ export default function PlanningPage() {
   }
 
   const resetForm = () => {
-    setEditingId(null); setSelectedDoctor(null); setSearchTerm(''); setVisitDate('2026-04-01'); setStartTime(''); setEndTime('')
+    setEditingId(null); setSelectedDoctor(null); setVisitDate('2026-04-01'); setStartTime(''); setEndTime('')
+  }
+
+  const clearFilters = () => {
+    setSearchTerm(''); setFilterCity(''); setFilterSpecialty(''); setFilterCategory('');
   }
 
   const myFullDocsList = useMemo(() => {
@@ -135,19 +144,36 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email && !planned.has(String(d.name || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name))
   }, [doctors, user, selectedRep, isAdmin, plannedVisits])
 
-  // EL BUSCADOR DEFINITIVO: Frase Exacta + A prueba de tildes
+  // LISTAS DINÁMICAS PARA LOS SELECTORES (Se extraen de los médicos disponibles del visitador)
+  const citiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.city).filter(Boolean))).sort(), [myFullDocsList])
+  const specialtiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.specialty).filter(Boolean))).sort(), [myFullDocsList])
+  const categoriesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.category).filter(Boolean))).sort(), [myFullDocsList])
+
+  // MOTOR DE FILTRADO TIPO E-COMMERCE
   const myDocsFiltered = useMemo(() => {
-    if (!searchTerm || selectedDoctor) return []
+    if (selectedDoctor) return [];
     
-    // Normalizamos lo que el usuario escribe (ej: "Ana Lucía" se vuelve "ana lucia")
-    const t = normalizeStr(searchTerm)
+    // Si no hay ningún filtro activo, no mostramos la lista (evitamos saturar la pantalla)
+    if (!searchTerm.trim() && !filterCity && !filterSpecialty && !filterCategory) return [];
     
-    return myFullDocsList.filter(d => 
-      normalizeStr(d.name).includes(t) || 
-      normalizeStr(d.specialty).includes(t) ||
-      normalizeStr(d.city).includes(t)
-    )
-  }, [myFullDocsList, searchTerm, selectedDoctor])
+    let filtered = myFullDocsList;
+
+    // Filtros exactos (Selectores)
+    if (filterCity) filtered = filtered.filter(d => d.city === filterCity);
+    if (filterSpecialty) filtered = filtered.filter(d => d.specialty === filterSpecialty);
+    if (filterCategory) filtered = filtered.filter(d => d.category === filterCategory);
+
+    // Filtro de Búsqueda de Texto (Solo para nombres)
+    if (searchTerm.trim()) {
+      const searchWords = normalizeStr(searchTerm).split(/\s+/).filter(w => w.length > 0);
+      filtered = filtered.filter(d => {
+        const docName = normalizeStr(d.name || '');
+        return searchWords.every(word => docName.includes(word));
+      });
+    }
+
+    return filtered;
+  }, [myFullDocsList, searchTerm, filterCity, filterSpecialty, filterCategory, selectedDoctor]);
 
   const days = Array.from({length: 30}, (_, i) => i + 1)
 
@@ -173,29 +199,94 @@ export default function PlanningPage() {
         {(!isAdmin || (isAdmin && selectedRep !== 'Todos')) && (
           <div className="w-full space-y-6">
             {!editingId && (
-              <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
+              <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100">
                 
+                {/* SELECTOR ORIGINAL (La chorrera) */}
                 <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
                   const docFound = myFullDocsList.find((d:any) => d.id === e.target.value)
-                  if (docFound) { setSelectedDoctor(docFound); setSearchTerm(docFound.name) }
+                  if (docFound) { setSelectedDoctor(docFound); }
                 }}>
-                  <option value="">-- Seleccionar Médico --</option>
+                  <option value="">-- Seleccionar Médico desde Lista Completa --</option>
                   {myFullDocsList.map((docItem:any) => <option key={docItem.id} value={docItem.id}>{docItem.name} — {docItem.city}</option>)}
                 </select>
                 
-                <div className="relative mt-6">
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Buscar médico, ciudad o especialidad..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                </div>
+                <div className="my-6 border-b border-gray-100"></div>
+
+                {/* --- SECCIÓN DE FILTROS TIPO E-COMMERCE --- */}
+                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Filtrar Base Médica</h3>
                 
-                {searchTerm && !selectedDoctor && (
-                  <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
+                {/* Buscador de Nombre */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input 
+                    type="text" 
+                    placeholder="Escribe un nombre o apellido..." 
+                    className="w-full bg-white border-2 border-gray-100 shadow-sm rounded-2xl py-3 pl-12 pr-4 text-sm font-bold outline-none focus:border-blue-500 transition-all" 
+                    value={searchTerm} 
+                    onChange={(e) => setSearchTerm(e.target.value)} 
+                  />
+                </div>
+
+                {/* Botones Selectores Rápidos */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {/* Filtro Ciudad */}
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 w-4 h-4 pointer-events-none" />
+                    <select value={filterCity} onChange={e => setFilterCity(e.target.value)} className="w-full bg-blue-50 text-blue-900 border-none rounded-xl py-3 pl-9 pr-8 text-xs font-bold appearance-none cursor-pointer outline-none">
+                      <option value="">Todas las Ciudades</option>
+                      {citiesList.map(c => <option key={c as string} value={c as string}>{c as string}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Filtro Especialidad */}
+                  <div className="relative">
+                    <Star className="absolute left-3 top-1/2 -translate-y-1/2 text-orange-500 w-4 h-4 pointer-events-none" />
+                    <select value={filterSpecialty} onChange={e => setFilterSpecialty(e.target.value)} className="w-full bg-orange-50 text-orange-900 border-none rounded-xl py-3 pl-9 pr-8 text-xs font-bold appearance-none cursor-pointer outline-none">
+                      <option value="">Todas las Especialidades</option>
+                      {specialtiesList.map(s => <option key={s as string} value={s as string}>{s as string}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Filtro Categoría */}
+                  <div className="relative">
+                    <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-purple-500 w-4 h-4 pointer-events-none" />
+                    <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="w-full bg-purple-50 text-purple-900 border-none rounded-xl py-3 pl-9 pr-8 text-xs font-bold appearance-none cursor-pointer outline-none">
+                      <option value="">Todas las Categorías</option>
+                      {categoriesList.map(c => <option key={c as string} value={c as string}>Categoría {c as string}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Limpiar Filtros */}
+                {(searchTerm || filterCity || filterSpecialty || filterCategory) && (
+                  <div className="mt-4 flex justify-between items-center bg-gray-50 p-3 rounded-xl">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      Mostrando {myDocsFiltered.length} resultados
+                    </span>
+                    <button onClick={clearFilters} className="text-[10px] font-black text-red-500 uppercase hover:text-red-700 transition-colors">
+                      Limpiar Filtros ✖
+                    </button>
+                  </div>
+                )}
+                
+                {/* LISTA DE RESULTADOS DE LOS FILTROS */}
+                {(searchTerm || filterCity || filterSpecialty || filterCategory) && !selectedDoctor && (
+                  <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                     {myDocsFiltered.length === 0 ? (
-                       <p className="text-center text-xs font-bold text-gray-400 py-4 uppercase">No hay coincidencias o ya fue agendado este mes.</p>
+                       <div className="text-center p-6 border-2 border-dashed rounded-2xl">
+                         <p className="text-xs font-bold text-gray-400 uppercase">Ningún médico coincide con estos filtros.</p>
+                       </div>
                     ) : (
                       myDocsFiltered.map((docItem:any) => (
-                        <button key={docItem.id} onClick={() => { setSelectedDoctor(docItem); setSearchTerm(docItem.name) }} className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl font-bold uppercase text-xs transition-colors">
-                          {docItem.name} <span className="text-blue-500">— {docItem.city}</span> <span className="text-gray-400 font-medium">• {docItem.specialty}</span>
+                        <button key={docItem.id} onClick={() => { setSelectedDoctor(docItem); clearFilters() }} className="w-full text-left p-4 bg-white border shadow-sm hover:border-blue-500 rounded-2xl font-bold uppercase text-xs transition-all group">
+                          <div className="flex justify-between items-center">
+                            <span className="group-hover:text-blue-600 transition-colors">{docItem.name}</span>
+                            {docItem.category && <span className="bg-purple-100 text-purple-700 text-[9px] px-2 py-0.5 rounded-md">CAT: {docItem.category}</span>}
+                          </div>
+                          <div className="text-[10px] font-bold text-gray-400 mt-1.5 flex gap-3">
+                            <span className="flex items-center gap-1"><MapPin size={10}/> {docItem.city}</span>
+                            <span className="flex items-center gap-1"><Star size={10}/> {docItem.specialty}</span>
+                          </div>
                         </button>
                       ))
                     )}
@@ -259,6 +350,7 @@ export default function PlanningPage() {
           </div>
         )}
 
+        {/* CALENDARIO */}
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
