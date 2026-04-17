@@ -21,6 +21,12 @@ const getFingerprintLocation = () => {
   });
 };
 
+// HERRAMIENTA MAESTRA: Quita tildes, mayúsculas y espacios extra
+const normalizeStr = (str: string) => {
+  if (!str) return '';
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+};
+
 export default function PlanningPage() {
   const { user, selectedRep, setSelectedRep } = useAuthStore()
   const [doctors, setDoctors] = useState<any[]>([])
@@ -129,17 +135,17 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email && !planned.has(String(d.name || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name))
   }, [doctors, user, selectedRep, isAdmin, plannedVisits])
 
-  // LÓGICA CLONADA EXACTAMENTE DE MEDICAL-CENTERS (Búsqueda de Frase Exacta)
+  // EL BUSCADOR DEFINITIVO: Frase Exacta + A prueba de tildes
   const myDocsFiltered = useMemo(() => {
     if (!searchTerm || selectedDoctor) return []
     
-    // Convertimos la búsqueda a minúsculas, sin separarla ni hacerle magia rara
-    const t = searchTerm.toLowerCase()
+    // Normalizamos lo que el usuario escribe (ej: "Ana Lucía" se vuelve "ana lucia")
+    const t = normalizeStr(searchTerm)
     
     return myFullDocsList.filter(d => 
-      String(d.name || '').toLowerCase().includes(t) || 
-      String(d.specialty || '').toLowerCase().includes(t) ||
-      String(d.city || '').toLowerCase().includes(t)
+      normalizeStr(d.name).includes(t) || 
+      normalizeStr(d.specialty).includes(t) ||
+      normalizeStr(d.city).includes(t)
     )
   }, [myFullDocsList, searchTerm, selectedDoctor])
 
@@ -169,7 +175,6 @@ export default function PlanningPage() {
             {!editingId && (
               <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
                 
-                {/* LA BARRA DESPLEGABLE SE MANTIENE AQUÍ INTACTA */}
                 <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
                   const docFound = myFullDocsList.find((d:any) => d.id === e.target.value)
                   if (docFound) { setSelectedDoctor(docFound); setSearchTerm(docFound.name) }
@@ -180,7 +185,7 @@ export default function PlanningPage() {
                 
                 <div className="relative mt-6">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Buscar por nombre, ciudad o especialidad..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Buscar médico, ciudad o especialidad..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 
                 {searchTerm && !selectedDoctor && (
