@@ -129,20 +129,18 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email && !planned.has(String(d.name || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name))
   }, [doctors, user, selectedRep, isAdmin, plannedVisits])
 
-  // --- EL AJUSTE ESTÁ AQUÍ ---
-  // Hacemos que el filtro sea mucho más estricto. Solo busca en el NOMBRE del médico.
-  // Y usa la frase completa.
+  // --- FILTRO ESTRICTO MULTI-PALABRA ---
   const myDocsFiltered = useMemo(() => {
     if (!searchTerm || selectedDoctor) return []
-    const t = searchTerm.toLowerCase().trim()
+    
+    // Separamos la búsqueda por espacios (Ej: "Esmeralda Espitia" se vuelve ["esmeralda", "espitia"])
+    const searchWords = searchTerm.toLowerCase().trim().split(/\s+/)
     
     return myFullDocsList.filter((d: any) => {
-       const docName = String(d.name || '').toLowerCase();
-       // Opcional: Si quieres que también busque por ciudad estrictamente, descomenta la siguiente línea:
-       // const docCity = String(d.city || '').toLowerCase();
+       const docName = String(d.name || '').toLowerCase()
        
-       // Por ahora, solo buscará coincidencias exactas dentro del nombre.
-       return docName.includes(t); 
+       // Exigimos que EL NOMBRE contenga TODAS las palabras que el usuario escribió
+       return searchWords.every(word => docName.includes(word))
     })
   }, [myFullDocsList, searchTerm, selectedDoctor])
 
@@ -180,8 +178,7 @@ export default function PlanningPage() {
                 </select>
                 <div className="relative mt-6">
                   <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  {/* Actualizamos el placeholder para que sea más claro */}
-                  <input type="text" placeholder="Buscar médico por nombre exacto..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <input type="text" placeholder="Buscar médico (Ej: Espitia)..." className="w-full bg-gray-50 border rounded-2xl py-4 pl-14 text-sm font-bold" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
                 {searchTerm && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto">
@@ -250,6 +247,7 @@ export default function PlanningPage() {
           </div>
         )}
 
+        {/* ... Calendario abajo ... */}
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
