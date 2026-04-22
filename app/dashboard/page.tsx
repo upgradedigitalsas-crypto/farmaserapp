@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs } from 'firebase/firestore'
-import { CalendarDays, Users, BarChart3, AlertCircle, Zap, Filter } from 'lucide-react'
+// Añadí CheckCircle a los iconos importados
+import { CalendarDays, Users, BarChart3, AlertCircle, Zap, Filter, CheckCircle } from 'lucide-react'
 
 export default function DashboardPage() {
   const { user, selectedRep, setSelectedRep } = useAuthStore()
@@ -133,21 +134,37 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* --- TARJETAS DE INDICADORES CON FÓRMULAS --- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      {/* --- TARJETAS DE INDICADORES (Ahora con 5 columnas: lg:grid-cols-5) --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         
         {/* Planeadas Mes */}
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-blue-200 transition-colors">
           <div className="flex items-start justify-between w-full">
             <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Planeadas Mes</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Planeadas</p>
               <p className="text-3xl font-black text-gray-900">{visits.length}</p>
             </div>
             <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CalendarDays size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
             <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-blue-500">Total:</span> Suma de citas agendadas este mes
+              <span className="text-blue-500">Total:</span> Agendadas este mes
+            </p>
+          </div>
+        </div>
+
+        {/* NUEVO: Reportadas Mes */}
+        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-indigo-200 transition-colors">
+          <div className="flex items-start justify-between w-full">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reportadas</p>
+              <p className="text-3xl font-black text-gray-900">{reports.length}</p>
+            </div>
+            <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CheckCircle size={24}/></div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
+              <span className="text-indigo-500">Total:</span> Ejecutadas y validadas
             </p>
           </div>
         </div>
@@ -163,7 +180,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
             <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-green-500">Fórmula:</span> (Médicos visitados ÷ Base total) × 100
+              <span className="text-green-500">Fórmula:</span> (Visitados ÷ Base) × 100
             </p>
           </div>
         </div>
@@ -179,7 +196,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
             <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-purple-500">Fórmula:</span> (Citas realizadas ÷ Planeadas) × 100
+              <span className="text-purple-500">Fórmula:</span> (Reportadas ÷ Planeadas) × 100
             </p>
           </div>
         </div>
@@ -188,17 +205,18 @@ export default function DashboardPage() {
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-orange-200 transition-colors">
           <div className="flex items-start justify-between w-full">
             <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">No Reportadas</p>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Pte Reporte</p>
               <p className="text-3xl font-black text-gray-900">{noReportadas}</p>
             </div>
             <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><AlertCircle size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
             <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-orange-500">Alerta:</span> Citas agendadas pero sin reportar
+              <span className="text-orange-500">Alerta:</span> Planeadas sin reporte
             </p>
           </div>
         </div>
+
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
