@@ -47,7 +47,6 @@ export default function DashboardPage() {
         let finalReports: any[] = []
 
         if (isAdmin && selectedRep === 'Todos') {
-          // ADMIN GLOBAL: Firebase lo permite, pedimos todo por fecha para sumar a toda la empresa
           const qVisits = query(visitsRef, where('visitDate', '>=', startOfMonthStr), where('visitDate', '<=', endOfMonthStr))
           const vSnap = await getDocs(qVisits)
           finalVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -56,15 +55,12 @@ export default function DashboardPage() {
           const rSnap = await getDocs(qReports)
           finalReports = rSnap.docs.map(d => d.data())
         } else {
-          // INDIVIDUAL (Visitadores): OBLIGATORIO pedir solo por su email por las Reglas de Firebase
           const qVisits = query(visitsRef, where('userEmail', '==', targetEmail))
           const vSnap = await getDocs(qVisits)
-          // Luego filtramos las fechas del mes aquí mismo
           finalVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((v: any) => v.visitDate >= startOfMonthStr && v.visitDate <= endOfMonthStr)
 
           const qReports = query(reportsRef, where('userEmail', '==', targetEmail))
           const rSnap = await getDocs(qReports)
-          // Luego filtramos las fechas del mes aquí mismo
           finalReports = rSnap.docs.map(d => d.data()).filter((r: any) => {
             const rDate = r.reportedAt?.toDate ? r.reportedAt.toDate() : new Date(r.reportedAt)
             return rDate >= startDate && rDate <= endDate
@@ -137,37 +133,71 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* --- TARJETAS DE INDICADORES CON FÓRMULAS --- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex items-center justify-between group hover:border-blue-200 transition-colors">
-          <div>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Planeadas Mes</p>
-            <p className="text-3xl font-black text-gray-900">{visits.length}</p>
+        
+        {/* Planeadas Mes */}
+        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-blue-200 transition-colors">
+          <div className="flex items-start justify-between w-full">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Planeadas Mes</p>
+              <p className="text-3xl font-black text-gray-900">{visits.length}</p>
+            </div>
+            <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CalendarDays size={24}/></div>
           </div>
-          <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CalendarDays size={24}/></div>
+          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
+              <span className="text-blue-500">Total:</span> Suma de citas agendadas este mes
+            </p>
+          </div>
         </div>
 
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex items-center justify-between group hover:border-green-200 transition-colors">
-          <div>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Cobertura</p>
-            <p className="text-3xl font-black text-gray-900">{cobertura}%</p>
+        {/* Cobertura */}
+        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-green-200 transition-colors">
+          <div className="flex items-start justify-between w-full">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Cobertura</p>
+              <p className="text-3xl font-black text-gray-900">{cobertura}%</p>
+            </div>
+            <div className="w-12 h-12 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><Users size={24}/></div>
           </div>
-          <div className="w-12 h-12 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><Users size={24}/></div>
+          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
+              <span className="text-green-500">Fórmula:</span> (Médicos visitados ÷ Base total) × 100
+            </p>
+          </div>
         </div>
 
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex items-center justify-between group hover:border-purple-200 transition-colors">
-          <div>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Efectividad</p>
-            <p className="text-3xl font-black text-gray-900">{efectividad}%</p>
+        {/* Efectividad */}
+        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-purple-200 transition-colors">
+          <div className="flex items-start justify-between w-full">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Efectividad</p>
+              <p className="text-3xl font-black text-gray-900">{efectividad}%</p>
+            </div>
+            <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><BarChart3 size={24}/></div>
           </div>
-          <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><BarChart3 size={24}/></div>
+          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
+              <span className="text-purple-500">Fórmula:</span> (Citas realizadas ÷ Planeadas) × 100
+            </p>
+          </div>
         </div>
 
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex items-center justify-between group hover:border-orange-200 transition-colors">
-          <div>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">No Reportadas</p>
-            <p className="text-3xl font-black text-gray-900">{noReportadas}</p>
+        {/* No Reportadas */}
+        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-orange-200 transition-colors">
+          <div className="flex items-start justify-between w-full">
+            <div>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">No Reportadas</p>
+              <p className="text-3xl font-black text-gray-900">{noReportadas}</p>
+            </div>
+            <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><AlertCircle size={24}/></div>
           </div>
-          <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><AlertCircle size={24}/></div>
+          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
+              <span className="text-orange-500">Alerta:</span> Citas agendadas pero sin reportar
+            </p>
+          </div>
         </div>
       </div>
 
