@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
-import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, AlertCircle, Filter, Download, Briefcase } from 'lucide-react'
+// Añadimos el icono History
+import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, AlertCircle, Filter, Download, Briefcase, History } from 'lucide-react'
 
 // 🛡️ CAPTURA DE GPS SILENCIOSA
 const getFingerprintLocation = () => {
@@ -33,6 +34,10 @@ export default function ReportsPage() {
   const [auditReports, setAuditReports] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   
+  // NUEVOS ESTADOS PARA EL HISTORIAL Y PESTAÑAS
+  const [repHistory, setRepHistory] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'pendientes' | 'historial'>('pendientes')
+
   const [selectedVisit, setSelectedVisit] = useState<any>(null)
   const [obs, setObs] = useState('')
   const [status, setStatus] = useState('Realizada')
@@ -51,7 +56,7 @@ export default function ReportsPage() {
     return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
   }, [doctors])
 
-  // 2. AUDITORÍA (PARA ADMIN: TABLA PROFESIONAL)
+  // 2. AUDITORÍA (PARA ADMIN: TABLA PROFESIONAL INTACTA)
   useEffect(() => {
     if (!isAdmin) return;
     const fetchAudit = async () => {
@@ -74,21 +79,43 @@ export default function ReportsPage() {
     fetchAudit()
   }, [isAdmin, selectedRep])
 
-  // 3. VISITAS DE HOY (PARA VISITADORES)
+  // 3. VISITAS DE HOY E HISTORIAL DE 30 DÍAS (PARA VISITADORES)
   useEffect(() => {
     if (isAdmin) return;
-    const fetchToday = async () => {
+    const fetchRepData = async () => {
       setLoading(true)
       try {
-        const q = query(collection(db, 'planned_visits'), 
+        // A. Cargar Pendientes de Hoy
+        const qPlanned = query(collection(db, 'planned_visits'), 
           where('userEmail', '==', user?.email?.toLowerCase()), 
           where('visitDate', '==', todayStr)
         )
-        const snap = await getDocs(q)
-        setVisits(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter((v: any) => v.status === 'Planeada'))
+        const snapPlanned = await getDocs(qPlanned)
+        setVisits(snapPlanned.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter((v: any) => v.status === 'Planeada'))
+
+        // B. Cargar Historial (Últimos 30 días)
+        const qReports = query(collection(db, 'visit_reports'),
+          where('userEmail', '==', user?.email?.toLowerCase())
+        )
+        const snapReports = await getDocs(qReports)
+        let history = snapReports.docs.map(d => ({ id: d.id, ...d.data() } as any))
+
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+        history = history.filter(r => {
+           const rDate = r.reportedAt?.toDate ? r.reportedAt.toDate() : new Date(r.reportedAt)
+           return rDate >= thirtyDaysAgo
+        }).sort((a, b) => {
+           const dA = a.reportedAt?.toDate ? a.reportedAt.toDate() : new Date(a.reportedAt)
+           const dB = b.reportedAt?.toDate ? b.reportedAt.toDate() : new Date(b.reportedAt)
+           return dB.getTime() - dA.getTime() // Más recientes primero
+        })
+
+        setRepHistory(history)
       } finally { setLoading(false) }
     }
-    fetchToday()
+    fetchRepData()
   }, [user, isAdmin, todayStr])
 
   const handleSaveReport = async () => {
@@ -105,7 +132,12 @@ export default function ReportsPage() {
       };
       if (locationFingerprint) reportData.locationFingerprint = locationFingerprint;
 
-      await addDoc(collection(db, 'visit_reports'), reportData)
+      const newReportRef = await addDoc(collection(db, 'visit_reports'), reportData)
+      
+      // Actualizar interfaz sin recargar página
+      setVisits(prev => prev.filter(v => v.id !== selectedVisit.id));
+      setRepHistory(prev => [{ id: newReportRef.id, ...reportData }, ...prev]);
+
       alert('¡Reporte guardado con éxito!'); setSelectedVisit(null); setObs(''); setSamples([]);
     } catch (e) { alert('Error al guardar reporte') } finally { setSaving(false) }
   }
@@ -151,7 +183,7 @@ export default function ReportsPage() {
       </header>
 
       {isAdmin ? (
-        /* 📊 VISTA SUPER ADMIN: TABLA PROFESIONAL (ESTILO 9:36 AM) */
+        /* 📊 VISTA SUPER ADMIN: TABLA PROFESIONAL */
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
           <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-white">
              <div className="flex items-center gap-3">
@@ -198,39 +230,85 @@ export default function ReportsPage() {
           </div>
         </div>
       ) : (
-        /* 📱 VISTA VISITADOR: LISTA Y FORMULARIO COMPLETO RESTAURADO */
+        /* 📱 VISTA VISITADOR: TABS Y FORMULARIO */
         <div className="max-w-[900px]">
            {!selectedVisit ? (
              <div className="space-y-4">
-               {loading ? <div className="p-20 text-center font-black text-gray-300 animate-pulse uppercase tracking-widest">Abriendo Agenda...</div> :
-                visits.length === 0 ? (
-                  <div className="bg-white p-12 rounded-[40px] text-center border border-dashed border-gray-200">
-                    <Package className="text-gray-200 mb-4 mx-auto" size={48} />
-                    <p className="text-gray-400 font-bold uppercase text-[10px]">No tienes citas pendientes para hoy.</p>
-                  </div>
-                ) : (
-                  visits.map(v => (
-                    <button key={v.id} onClick={() => setSelectedVisit(v)} className="w-full bg-white p-6 rounded-[35px] border border-gray-100 flex items-center justify-between hover:border-blue-600 transition-all shadow-sm group">
-                      <div className="flex items-center gap-4 text-left">
-                         <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all"><User size={24}/></div>
-                         <div>
-                           <p className="font-black text-gray-900 uppercase leading-none mb-1 text-sm">{v.doctorName}</p>
-                           <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase">
-                             <span className="text-blue-600">{v.startTime}</span>
-                             <span>•</span>
-                             <span>{v.doctorDetails?.specialty}</span>
-                             <span>•</span>
-                             <span>{v.doctorDetails?.city}</span>
+               
+               {/* 🗂️ SELECTOR DE PESTAÑAS (TABS) */}
+               <div className="flex gap-3 mb-8">
+                 <button 
+                   onClick={() => setActiveTab('pendientes')} 
+                   className={`flex-1 md:flex-none px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${activeTab === 'pendientes' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-gray-400 border border-gray-100 hover:bg-gray-50'}`}
+                 >
+                   <Package size={14}/> Pendientes Hoy
+                 </button>
+                 <button 
+                   onClick={() => setActiveTab('historial')} 
+                   className={`flex-1 md:flex-none px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${activeTab === 'historial' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-gray-400 border border-gray-100 hover:bg-gray-50'}`}
+                 >
+                   <History size={14}/> Historial (30 Días)
+                 </button>
+               </div>
+
+               {loading ? <div className="p-20 text-center font-black text-gray-300 animate-pulse uppercase tracking-widest">Sincronizando...</div> :
+                activeTab === 'pendientes' ? (
+                  /* 📦 TAB 1: PENDIENTES DE HOY */
+                  visits.length === 0 ? (
+                    <div className="bg-white p-12 rounded-[40px] text-center border border-dashed border-gray-200">
+                      <Package className="text-gray-200 mb-4 mx-auto" size={48} />
+                      <p className="text-gray-400 font-bold uppercase text-[10px]">No tienes citas pendientes para hoy.</p>
+                    </div>
+                  ) : (
+                    visits.map(v => (
+                      <button key={v.id} onClick={() => setSelectedVisit(v)} className="w-full bg-white p-6 rounded-[35px] border border-gray-100 flex items-center justify-between hover:border-blue-600 transition-all shadow-sm group">
+                        <div className="flex items-center gap-4 text-left">
+                           <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all"><User size={24}/></div>
+                           <div>
+                             <p className="font-black text-gray-900 uppercase leading-none mb-1 text-sm">{v.doctorName}</p>
+                             <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase">
+                               <span className="text-blue-600">{v.startTime}</span>
+                               <span>•</span>
+                               <span>{v.doctorDetails?.specialty}</span>
+                               <span>•</span>
+                               <span>{v.doctorDetails?.city}</span>
+                             </div>
                            </div>
-                         </div>
+                        </div>
+                        <div className="bg-blue-600 px-6 py-2 rounded-xl text-[10px] font-black text-white uppercase shadow-md hidden sm:block">REPORTAR</div>
+                      </button>
+                    ))
+                  )
+                ) : (
+                  /* 📜 TAB 2: HISTORIAL ÚLTIMOS 30 DÍAS */
+                  repHistory.length === 0 ? (
+                    <div className="bg-white p-12 rounded-[40px] text-center border border-dashed border-gray-200">
+                      <History className="text-gray-200 mb-4 mx-auto" size={48} />
+                      <p className="text-gray-400 font-bold uppercase text-[10px]">No tienes reportes en los últimos 30 días.</p>
+                    </div>
+                  ) : (
+                    repHistory.map(r => (
+                      <div key={r.id} className="w-full bg-white p-6 rounded-[35px] border border-gray-100 flex items-center justify-between shadow-sm">
+                        <div className="flex items-center gap-4 text-left">
+                           <div className="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center"><CheckCircle size={24}/></div>
+                           <div>
+                             <p className="font-black text-gray-900 uppercase leading-none mb-1 text-sm">{r.doctorName}</p>
+                             <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-gray-400 uppercase mt-1.5">
+                               <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-md">{r.reportedAt?.toDate().toLocaleDateString()}</span>
+                               <span className={r.status === 'Realizada' ? 'text-green-500' : 'text-orange-500'}>{r.status}</span>
+                             </div>
+                           </div>
+                        </div>
+                        <div className="text-right hidden sm:block max-w-[200px]">
+                          <p className="text-[9px] font-bold text-gray-400 truncate">{r.samples?.length > 0 ? r.samples.map((s:any) => `${s.qty}x ${s.name}`).join(', ') : 'Sin muestras'}</p>
+                        </div>
                       </div>
-                      <div className="bg-blue-600 px-6 py-2 rounded-xl text-[10px] font-black text-white uppercase shadow-md">REPORTAR</div>
-                    </button>
-                  ))
+                    ))
+                  )
                 )}
              </div>
            ) : (
-             /* 🛠️ FORMULARIO DE REPORTE (RESTAURADO AL 100%) */
+             /* 🛠️ FORMULARIO DE REPORTE CON TUS ESTILOS PERSONALIZADOS */
              <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-gray-100 animate-in zoom-in-95">
                 <button onClick={() => { setSelectedVisit(null); setObs(''); setSamples([]); }} className="mb-8 text-gray-400 font-black uppercase text-[10px] flex items-center gap-2 hover:text-red-500 transition-colors">
                   <X size={14}/> Cancelar y Volver
@@ -271,7 +349,7 @@ export default function ReportsPage() {
                       ))}
                     </div>
                     
-                    {/* LISTADO DE MUESTRAS SELECCIONADAS */}
+                    {/* TUS ESTILOS PERSONALIZADOS DE LISTADO DE MUESTRAS */}
                     <div className="space-y-3">
                       {samples.map(s => (
                         <div key={s.productId} className="flex items-center justify-between bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-sm animate-in slide-in-from-right duration-300">
@@ -286,19 +364,18 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  {/* OBSERVACIONES */}
+                  {/* OBSERVACIONES Y BOTÓN GUARDAR */}
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400 block mb-4 tracking-widest text-center">Observaciones y Notas</label>
                     <div className="relative">
                       <MessageSquare className="absolute top-5 left-5 text-gray-300" size={20}/>
                       <textarea value={obs} onChange={e => setObs(e.target.value)} rows={4} className="w-full bg-gray-50 rounded-[30px] p-6 pl-14 text-sm font-bold border-none focus:ring-2 focus:ring-blue-600 shadow-inner" placeholder="Escribe aquí los detalles del encuentro..."/>
                     </div>
+                    
+                    <button onClick={handleSaveReport} disabled={saving} className="mt-8 w-full bg-green-600 text-white font-black py-7 rounded-[30px] uppercase text-xs tracking-[0.3em] shadow-2xl shadow-green-200 flex items-center justify-center gap-4 active:scale-95 transition-all">
+                      {saving ? <Loader2 className="animate-spin" size={22}/> : <CheckCircle size={22}/>} Finalizar y Guardar Reporte
+                    </button>
                   </div>
-
-                  {/* BOTÓN FINAL */}
-                  <button onClick={handleSaveReport} disabled={saving} className="w-full bg-green-600 text-white font-black py-7 rounded-[30px] uppercase text-xs tracking-[0.3em] shadow-2xl shadow-green-200 flex items-center justify-center gap-4 active:scale-95 transition-all">
-                    {saving ? <Loader2 className="animate-spin" size={22}/> : <CheckCircle size={22}/>} Finalizar y Guardar Reporte
-                  </button>
                 </div>
              </div>
            )}
