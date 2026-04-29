@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { auth } from '@/lib/firebase'
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
+import { signInWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth'
 import { useAuthStore } from '@/lib/store'
 import { useRouter } from 'next/navigation'
 
@@ -11,18 +11,40 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
   const setUser = useAuthStore((state) => state.setUser)
   const router = useRouter()
 
   useEffect(() => {
     setIsMounted(true)
-  }, [])
+
+    // Este bloque atrapa al usuario cuando Google lo devuelve a tu app
+    const checkRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result?.user) {
+          setUser({
+            id: result.user.uid,
+            email: result.user.email || '',
+            name: result.user.displayName || 'Usuario Google',
+            role: 'visitor',
+          })
+          router.push('/dashboard')
+        }
+      } catch (err) {
+        setError('Error al iniciar sesión con Google.')
+      }
+    }
+
+    checkRedirect()
+  }, [setUser, router])
 
   if (!isMounted) return null;
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setIsLoading(true)
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
       setUser({
@@ -34,22 +56,20 @@ export default function LoginPage() {
       router.push('/dashboard')
     } catch (err: any) {
       setError('Credenciales incorrectas.')
+      setIsLoading(false)
     }
   }
 
   const handleGoogleLogin = async () => {
+    setError('')
+    setIsLoading(true)
     const provider = new GoogleAuthProvider()
     try {
-      const result = await signInWithPopup(auth, provider)
-      setUser({
-        id: result.user.uid,
-        email: result.user.email || '',
-        name: result.user.displayName || 'Usuario Google',
-        role: 'visitor',
-      })
-      router.push('/dashboard')
+      // Usamos Redirect en lugar de Popup
+      await signInWithRedirect(auth, provider)
     } catch (err) {
-      setError('Error con Google.')
+      setError('Error al conectar con Google.')
+      setIsLoading(false)
     }
   }
 
@@ -71,6 +91,7 @@ export default function LoginPage() {
             className="w-full p-4 border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
           />
           <input
             type="password"
@@ -78,15 +99,25 @@ export default function LoginPage() {
             className="w-full p-4 border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading}
           />
           {error && <p className="text-red-500 text-sm">{error}</p>}
-          <button type="submit" className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold">
-            Entrar
+          <button 
+            type="submit" 
+            className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold disabled:bg-blue-400 disabled:cursor-not-allowed"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Cargando...' : 'Entrar'}
           </button>
         </form>
-        <button onClick={handleGoogleLogin} className="mt-4 w-full border p-4 rounded-2xl font-semibold flex items-center justify-center gap-2">
+
+        <button 
+          onClick={handleGoogleLogin} 
+          className="mt-4 w-full border p-4 rounded-2xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+          disabled={isLoading}
+        >
           <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="" />
-          Google
+          {isLoading ? 'Conectando...' : 'Google'}
         </button>
       </div>
     </div>
