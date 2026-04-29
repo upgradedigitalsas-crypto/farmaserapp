@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { auth } from '@/lib/firebase'
-import { signInWithEmailAndPassword, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth'
+import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged } from 'firebase/auth'
 import { useAuthStore } from '@/lib/store'
 import { useRouter } from 'next/navigation'
 
@@ -18,25 +18,26 @@ export default function LoginPage() {
   useEffect(() => {
     setIsMounted(true)
 
-    // Este bloque atrapa al usuario cuando Google lo devuelve a tu app
-    const checkRedirect = async () => {
-      try {
-        const result = await getRedirectResult(auth)
-        if (result?.user) {
-          setUser({
-            id: result.user.uid,
-            email: result.user.email || '',
-            name: result.user.displayName || 'Usuario Google',
-            role: 'visitor',
-          })
-          router.push('/dashboard')
-        }
-      } catch (err) {
-        setError('Error al iniciar sesión con Google.')
+    // EL RADAR: Vigila constantemente si el usuario está logueado
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser({
+          id: currentUser.uid,
+          email: currentUser.email || '',
+          name: currentUser.displayName || 'Usuario Google',
+          role: 'visitor',
+        })
+        router.push('/dashboard')
       }
-    }
+    })
 
-    checkRedirect()
+    // Atrapa errores si la redirección en celular falla
+    getRedirectResult(auth).catch(() => {
+      setError('Error al procesar el login con Google.')
+      setIsLoading(false)
+    })
+
+    return () => unsubscribe()
   }, [setUser, router])
 
   if (!isMounted) return null;
@@ -46,30 +47,36 @@ export default function LoginPage() {
     setError('')
     setIsLoading(true)
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      setUser({
-        id: userCredential.user.uid,
-        email: userCredential.user.email || '',
-        name: userCredential.user.displayName || 'Visitador',
-        role: 'visitor',
-      })
-      router.push('/dashboard')
+      await signInWithEmailAndPassword(auth, email, password)
+      // No hacemos push aquí, el Radar se encarga
     } catch (err: any) {
       setError('Credenciales incorrectas.')
       setIsLoading(false)
     }
   }
 
+  // LÓGICA HÍBRIDA: Intenta Popup primero (PC), si falla, usa Redirect (Móvil).
   const handleGoogleLogin = async () => {
     setError('')
     setIsLoading(true)
     const provider = new GoogleAuthProvider()
+    
     try {
-      // Usamos Redirect en lugar de Popup
-      await signInWithRedirect(auth, provider)
-    } catch (err) {
-      setError('Error al conectar con Google.')
-      setIsLoading(false)
+      // 1. Intentamos el método original rápido (Perfecto para PC y Android)
+      await signInWithPopup(auth, provider)
+    } catch (err: any) {
+      // 2. Si el navegador (Safari/In-App) bloquea el popup, usamos la redirección
+      if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
+        try {
+          await signInWithRedirect(auth, provider)
+        } catch (redirectErr) {
+          setError('No se pudo redirigir a Google.')
+          setIsLoading(false)
+        }
+      } else {
+        setError('Acceso con Google cancelado o fallido.')
+        setIsLoading(false)
+      }
     }
   }
 
@@ -77,7 +84,6 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md text-center">
         
-        {/* Logo de Farmaser Centrado */}
         <img 
           src="/Farmaser%20Logo.png" 
           alt="Farmaser Logo" 
@@ -101,10 +107,10 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             disabled={isLoading}
           />
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-red-500 text-sm font-bold bg-red-50 p-3 rounded-xl">{error}</p>}
           <button 
             type="submit" 
-            className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold disabled:bg-blue-400 disabled:cursor-not-allowed"
+            className="w-full bg-blue-600 text-white p-4 rounded-2xl font-bold disabled:bg-blue-400 disabled:cursor-not-allowed transition-all"
             disabled={isLoading}
           >
             {isLoading ? 'Cargando...' : 'Entrar'}
@@ -113,7 +119,7 @@ export default function LoginPage() {
 
         <button 
           onClick={handleGoogleLogin} 
-          className="mt-4 w-full border p-4 rounded-2xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+          className="mt-4 w-full border p-4 rounded-2xl font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-all"
           disabled={isLoading}
         >
           <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="" />
