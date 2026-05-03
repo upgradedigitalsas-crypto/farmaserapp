@@ -5,6 +5,14 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore'
 import { Clock, Loader2, X, Edit3, Filter, MapPin, CalendarDays, Trash2 } from 'lucide-react'
 
+// === LÓGICA AUTOMÁTICA DE FECHAS ===
+const now = new Date();
+const currentMonthStr = (now.getMonth() + 1).toString().padStart(2, '0');
+const currentYear = now.getFullYear();
+const monthName = now.toLocaleString('es-ES', { month: 'long' });
+const daysInMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
+const filterKey = `${currentYear}-${currentMonthStr}`;
+
 export default function ItineraryPage() {
   const { user, selectedRep, setSelectedRep } = useAuthStore()
   
@@ -16,8 +24,8 @@ export default function ItineraryPage() {
   
   const [formData, setFormData] = useState({
     city: '',
-    startDate: '2026-04-01',
-    endDate: '2026-04-01',
+    startDate: now.toISOString().split('T')[0], // Hoy automático
+    endDate: now.toISOString().split('T')[0],   // Hoy automático
     startTime: '08:00',
     endTime: '18:00',
     observation: ''
@@ -55,7 +63,8 @@ export default function ItineraryPage() {
       const querySnapshot = await getDocs(q)
       const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       
-      setTrips(data.filter((t: any) => t.startDate?.includes('-04-') || t.endDate?.includes('-04-')))
+      // FILTRO DINÁMICO: Solo muestra rutas del mes actual
+      setTrips(data.filter((t: any) => t.startDate?.includes(filterKey) || t.endDate?.includes(filterKey)))
     } catch (e) { 
       console.error(e) 
     } finally { 
@@ -120,22 +129,29 @@ export default function ItineraryPage() {
 
   const resetForm = () => {
     setEditingId(null)
-    setFormData({ city: '', startDate: '2026-04-01', endDate: '2026-04-01', startTime: '08:00', endTime: '18:00', observation: '' })
+    setFormData({ 
+      city: '', 
+      startDate: now.toISOString().split('T')[0], 
+      endDate: now.toISOString().split('T')[0], 
+      startTime: '08:00', 
+      endTime: '18:00', 
+      observation: '' 
+    })
   }
 
   const getTripForDay = (day: number) => {
-    const currentDayStr = `2026-04-${day.toString().padStart(2, '0')}`
+    const currentDayStr = `${currentYear}-${currentMonthStr}-${day.toString().padStart(2, '0')}`
     return trips.find(t => currentDayStr >= t.startDate && currentDayStr <= t.endDate)
   }
 
-  const days = Array.from({length: 30}, (_, i) => i + 1)
+  const days = Array.from({length: daysInMonth}, (_, i) => i + 1)
   
   return (
     <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">Itinerario</h1>
-          <p className="text-gray-500 font-medium text-sm mt-2">Abril 2026 — Hoja de ruta mensual</p>
+          <p className="text-gray-500 font-medium text-sm mt-2 capitalize">{monthName} {currentYear} — Hoja de ruta mensual</p>
         </div>
 
         {isAdmin && (
@@ -236,7 +252,7 @@ export default function ItineraryPage() {
                     >
                       <div className="flex justify-between items-start">
                         <span className={`text-[11px] font-black ${trip ? 'text-blue-600' : 'text-gray-300'}`}>
-                          {d.toString().padStart(2, '0')} / 04
+                          {d.toString().padStart(2, '0')} / {currentMonthStr}
                         </span>
                         {trip && <Edit3 size={10} className="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
                       </div>
