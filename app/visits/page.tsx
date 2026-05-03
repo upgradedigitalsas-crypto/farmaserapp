@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { useAuthStore } from '@/lib/store'
+import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore'
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download, MessageSquare } from 'lucide-react'
 
 // === LÓGICA AUTOMÁTICA DE FECHAS ===
@@ -59,7 +59,10 @@ export default function PlanningPage() {
   const [status, setStatus] = useState('Planeada')
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
+  // === FASE 3.0: Variables de Jerarquía y Blindaje Caché ===
+  const userEmail = user?.email?.toLowerCase().trim() || ''
+  const isAdmin = user?.role === 'admin' || userEmail === 'entrenamientofarmaser@gmail.com'
+  const isManager = user?.role === 'manager' || Object.keys(TEAM_MAPPING).includes(userEmail)
 
   const fetchData = async () => {
     setLoading(true)
@@ -67,18 +70,38 @@ export default function PlanningPage() {
       const resDocs = await fetch('/api/doctors')
       const dataDocs = await resDocs.json()
       setDoctors(Array.isArray(dataDocs) ? dataDocs : [])
+      
       const vRef = collection(db, 'planned_visits')
-      const emailTarget = isAdmin ? selectedRep : user?.email?.toLowerCase().trim()
-      const q = (isAdmin && selectedRep === 'Todos') ? query(vRef) : query(vRef, where('userEmail', '==', emailTarget))
+      
+      // Lógica de Consulta Adaptada para Admin y Manager
+      let q;
+      if (isAdmin && selectedRep === 'Todos') {
+         q = query(vRef); // Super Admin ve absolutamente todo
+      } else if (isManager && selectedRep === 'Todos') {
+         // Manager ve TODO su equipo (No usamos 'in' porque Firebase limita a 10, es mejor traer todo y filtrar en memoria)
+         q = query(vRef); 
+      } else {
+         // Consulta específica a un correo (Sea el propio o el seleccionado en el filtro)
+         const emailTarget = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail;
+         q = query(vRef, where('userEmail', '==', emailTarget));
+      }
+
       const snap = await getDocs(q)
-      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      let all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      
+      // Filtro adicional en memoria para 'Consolidado Equipo' del Manager
+      if (isManager && selectedRep === 'Todos') {
+        const myTeam = TEAM_MAPPING[userEmail] || [];
+        all = all.filter((v: any) => myTeam.includes(String(v.userEmail || '').toLowerCase().trim()));
+      }
+
       setPlannedVisits(all.filter((v: any) => v.visitDate?.includes(filterKey)))
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData() }, [user, selectedRep])
 
-  // === LÓGICA CORREGIDA PARA BUSCAR EL ÚLTIMO COMENTARIO (SIN ERROR DE ÍNDICE) ===
+  // Lógica para buscar el último comentario
   useEffect(() => {
     if (!selectedDoctor) {
       setLastComment(null);
@@ -87,9 +110,11 @@ export default function PlanningPage() {
 
     const fetchLastComment = async () => {
       try {
+        const emailToSearch = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail;
+        
         const q = query(
           collection(db, 'visit_reports'),
-          where('userEmail', '==', user?.email?.toLowerCase().trim())
+          where('userEmail', '==', emailToSearch)
         );
         
         const snap = await getDocs(q);
@@ -116,19 +141,26 @@ export default function PlanningPage() {
     };
 
     fetchLastComment();
-  }, [selectedDoctor, user]);
+  }, [selectedDoctor, user, selectedRep, isAdmin, isManager, userEmail]);
 
+  // Lista para el Dropdown
   const repsList = useMemo(() => {
-    if (!isAdmin) return []
-    return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
-  }, [doctors, isAdmin])
+    if (isAdmin) {
+      return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#')))).sort()
+    } else if (isManager) {
+      const myTeam = TEAM_MAPPING[userEmail] || []
+      return myTeam.filter(email => email !== userEmail).sort()
+    }
+    return []
+  }, [doctors, isAdmin, isManager, userEmail])
 
   const handleSaveVisit = async () => {
     if (!selectedDoctor || !visitDate) return alert('Datos incompletos')
     setSaving(true)
     try {
       const locationFingerprint = await getFingerprintLocation()
-      const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim()
+      const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
+      
       const visitData: any = {
         userEmail: targetEmail,
         doctorName: selectedDoctor.name,
@@ -201,10 +233,16 @@ export default function PlanningPage() {
   }
 
   const myFullDocsList = useMemo(() => {
-    const email = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim()
-    if (!email && isAdmin) return []
-    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email).sort((a: any, b: any) => a.name.localeCompare(b.name))
-  }, [doctors, user, selectedRep, isAdmin])
+    if (isAdmin && selectedRep === 'Todos') return doctors.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    
+    if (isManager && selectedRep === 'Todos') {
+      const myTeam = TEAM_MAPPING[userEmail] || [];
+      return doctors.filter((d: any) => myTeam.includes(String(d.assignedTo || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name));
+    }
+
+    const emailToFilter = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail;
+    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
+  }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
   const citiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.city).filter(Boolean))).sort(), [myFullDocsList])
   const specialtiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.specialty).filter(Boolean))).sort(), [myFullDocsList])
@@ -236,12 +274,21 @@ export default function PlanningPage() {
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">Planeación</h1>
           <p className="text-gray-500 font-medium capitalize mt-2">{monthName} {currentYear}</p>
         </div>
-        {isAdmin && (
+        
+        {/* FASE 3.0: Dropdown visible para Admin Y Manager */}
+        {(isAdmin || isManager) && (
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <div className="bg-white p-2 rounded-2xl shadow-sm border flex items-center gap-3 w-full sm:w-auto">
               <Filter size={20} className="text-indigo-600 ml-2"/>
-              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold bg-transparent outline-none">
-                <option value="Todos">Toda la Empresa</option>
+              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold bg-transparent outline-none cursor-pointer pr-4">
+                {isAdmin ? (
+                  <option value="Todos">Toda la Empresa</option>
+                ) : (
+                  <>
+                    <option value="Todos">Consolidado Equipo</option>
+                    <option value={userEmail}>Mi Gestión Propia</option>
+                  </>
+                )}
                 {repsList.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
@@ -253,7 +300,9 @@ export default function PlanningPage() {
       </header>
 
       <div className="flex flex-col gap-10">
-        {(!isAdmin || (isAdmin && selectedRep !== 'Todos')) && (
+        
+        {/* Formulario Oculto si se selecciona "Todos" o "Consolidado" */}
+        {selectedRep !== 'Todos' && (
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100">
@@ -332,7 +381,7 @@ export default function PlanningPage() {
                   <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
                 </div>
 
-                {/* --- SEGUIMIENTO ANTERIOR (DISEÑO FLAT) --- */}
+                {/* --- SEGUIMIENTO ANTERIOR --- */}
                 {lastComment && (
                   <div className="mb-6 pt-4 border-t border-gray-100">
                     <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 flex items-center gap-1">
@@ -367,6 +416,7 @@ export default function PlanningPage() {
           </div>
         )}
 
+        {/* Calendario Mensual */}
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
@@ -377,9 +427,23 @@ export default function PlanningPage() {
                   <span className={`text-[11px] font-black mb-2 ${visitsOnDay.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / {currentMonthStr}</span>
                   <div className="space-y-1.5 overflow-y-auto custom-scrollbar pr-1 flex-1">
                     {visitsOnDay.map((v: any) => (
-                      <button key={v.id} onClick={() => startEdit(v)} className="w-full text-left p-2 rounded-xl bg-white border border-blue-100 shadow-sm hover:shadow-md transition-all group">
+                      <button key={v.id} onClick={() => {
+                        // Un manager solo puede editar si la cita es de él mismo
+                        if (isAdmin || userEmail === v.userEmail) {
+                          startEdit(v)
+                        } else {
+                           // Modo Solo Lectura: Oculta el form y alerta
+                           alert(`Esta cita pertenece a ${v.userEmail}. No puedes editarla.`);
+                        }
+                      }} className="w-full text-left p-2 rounded-xl bg-white border border-blue-100 shadow-sm hover:shadow-md transition-all group">
                         <p className="text-[9px] font-black text-gray-900 uppercase leading-tight line-clamp-2 group-hover:text-blue-600">{v.doctorName}</p>
                         <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase italic">{v.doctorDetails?.city || '---'}</p>
+                        
+                        {/* FASE 3.0: Muestra a quién pertenece la cita si está en vista 'Consolidado' o Admin */}
+                        {(isAdmin || isManager) && selectedRep === 'Todos' && (
+                           <p className="text-[7px] font-bold text-indigo-500 mt-0.5 truncate">{v.userEmail}</p>
+                        )}
+                        
                         <div className="flex justify-between items-center mt-1">
                           <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase ${v.status === 'Realizada' ? 'bg-green-100 text-green-700' : v.status === 'Reagendada' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{v.status}</span>
                         </div>
@@ -391,6 +455,7 @@ export default function PlanningPage() {
             })}
           </div>
         </div>
+
       </div>
     </div>
   )
