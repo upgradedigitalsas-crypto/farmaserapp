@@ -46,7 +46,7 @@ export default function PlanningPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
-  const [lastComment, setLastComment] = useState<string | null>(null) // NUEVO: Estado para el seguimiento
+  const [lastComment, setLastComment] = useState<string | null>(null)
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCity, setFilterCity] = useState('')
@@ -78,32 +78,45 @@ export default function PlanningPage() {
 
   useEffect(() => { fetchData() }, [user, selectedRep])
 
-  // === LÓGICA PARA BUSCAR EL ÚLTIMO COMENTARIO (UX) ===
+  // === LÓGICA CORREGIDA PARA BUSCAR EL ÚLTIMO COMENTARIO (SIN ERROR DE ÍNDICE) ===
   useEffect(() => {
     if (!selectedDoctor) {
       setLastComment(null);
       return;
     }
+
     const fetchLastComment = async () => {
       try {
         const q = query(
           collection(db, 'visit_reports'),
-          where('doctorName', '==', selectedDoctor.name),
-          orderBy('reportedAt', 'desc'),
-          limit(1)
+          where('userEmail', '==', user?.email?.toLowerCase().trim())
         );
+        
         const snap = await getDocs(q);
         if (!snap.empty) {
-          setLastComment(snap.docs[0].data().observations);
-        } else {
-          setLastComment(null);
+          const doctorReports = snap.docs
+            .map(d => d.data())
+            .filter(r => normalizeStr(r.doctorName) === normalizeStr(selectedDoctor.name))
+            .sort((a: any, b: any) => {
+              const dateA = a.reportedAt?.toDate ? a.reportedAt.toDate() : new Date(a.reportedAt);
+              const dateB = b.reportedAt?.toDate ? b.reportedAt.toDate() : new Date(b.reportedAt);
+              return dateB - dateA;
+            });
+
+          if (doctorReports.length > 0) {
+            setLastComment(doctorReports[0].observations);
+          } else {
+            setLastComment(null);
+          }
         }
       } catch (e) {
         console.error("Error buscando último seguimiento:", e);
+        setLastComment(null);
       }
     };
+
     fetchLastComment();
-  }, [selectedDoctor]);
+  }, [selectedDoctor, user]);
 
   const repsList = useMemo(() => {
     if (!isAdmin) return []
