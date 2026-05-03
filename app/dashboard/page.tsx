@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { useAuthStore } from '@/lib/store'
+import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { CalendarDays, Users, BarChart3, AlertCircle, Zap, Filter, CheckCircle, Star, X } from 'lucide-react'
@@ -17,16 +17,24 @@ export default function DashboardPage() {
   const [lastMonthStats, setLastMonthStats] = useState<any>(null)
   const [showBanner, setShowBanner] = useState(true)
 
-  const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
+  // === FASE 3.0: Variables de Jerarquía y Blindaje Caché ===
+  const userEmail = user?.email?.toLowerCase().trim() || ''
+  const isAdmin = user?.role === 'admin' || userEmail === 'entrenamientofarmaser@gmail.com'
+  const isManager = user?.role === 'manager' || Object.keys(TEAM_MAPPING).includes(userEmail)
 
   const repsList = useMemo(() => {
-    if (!isAdmin) return []
-    return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
-  }, [doctors, isAdmin])
+    if (isAdmin) {
+      return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#')))).sort()
+    } else if (isManager) {
+      const myTeam = TEAM_MAPPING[userEmail] || []
+      return myTeam.filter(email => email !== userEmail).sort()
+    }
+    return []
+  }, [doctors, isAdmin, isManager, userEmail])
 
   useEffect(() => {
     const loadData = async () => {
-      if (!user?.email) return
+      if (!userEmail) return
       setLoading(true)
 
       try {
@@ -36,7 +44,7 @@ export default function DashboardPage() {
         setDoctors(allDoctors)
 
         const now = new Date()
-        const targetEmail = isAdmin ? selectedRep : user.email.toLowerCase().trim()
+        const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
         
         // --- LÓGICA MES ACTUAL ---
         const startOfMonthStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
@@ -55,19 +63,36 @@ export default function DashboardPage() {
         const visitsRef = collection(db, 'planned_visits')
         const reportsRef = collection(db, 'visit_reports')
 
-        // Carga de datos mes actual
         let finalVisits: any[] = []
         let finalReports: any[] = []
 
-        if (isAdmin && selectedRep === 'Todos') {
+        // FASE 3.0: Lógica para Vistas Consolidadas (Admin o Manager)
+        if ((isAdmin || isManager) && selectedRep === 'Todos') {
+          // Traemos todo el mes para no hacer N consultas
           const qVisits = query(visitsRef, where('visitDate', '>=', startOfMonthStr), where('visitDate', '<=', endOfMonthStr))
           const vSnap = await getDocs(qVisits)
-          finalVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+          let tempVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
 
           const qReports = query(reportsRef, where('reportedAt', '>=', startDate), where('reportedAt', '<=', endDate))
           const rSnap = await getDocs(qReports)
-          finalReports = rSnap.docs.map(d => d.data())
+          let tempReports = rSnap.docs.map(d => d.data())
+
+          if (isManager) {
+            // Manager: Filtramos en memoria solo los de su equipo
+            const myTeam = TEAM_MAPPING[userEmail] || []
+            finalVisits = tempVisits.filter((v: any) => myTeam.includes(String(v.userEmail || '').toLowerCase().trim()))
+            finalReports = tempReports.filter((r: any) => myTeam.includes(String(r.userEmail || '').toLowerCase().trim()))
+          } else {
+            // Admin: Ve todo
+            finalVisits = tempVisits
+            finalReports = tempReports
+          }
+          
+          // Ocultamos el banner individual si estamos en vista de "Equipo"
+          setLastMonthStats(null)
+
         } else {
+          // FASE 3.0: Vista Individual (Visitador, o Admin/Manager viendo a un visitador específico)
           const qVisits = query(visitsRef, where('userEmail', '==', targetEmail))
           const vSnap = await getDocs(qVisits)
           finalVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((v: any) => v.visitDate >= startOfMonthStr && v.visitDate <= endOfMonthStr)
@@ -79,26 +104,24 @@ export default function DashboardPage() {
             return rDate >= startDate && rDate <= endDate
           })
 
-          // --- CARGAR DATOS MES PASADO (Solo para visitadores) ---
-          if (!isAdmin) {
-            const lmVisits = vSnap.docs.map(d => d.data()).filter((v: any) => v.visitDate >= lmStartStr && v.visitDate <= lmEndStr)
-            const lmReports = rSnap.docs.map(d => d.data()).filter((r: any) => {
-              const rDate = r.reportedAt?.toDate ? r.reportedAt.toDate() : new Date(r.reportedAt)
-              return rDate >= lmStartDate && rDate <= lmEndDate
-            })
+          // Calcular Banner del mes pasado para este usuario
+          const lmVisits = vSnap.docs.map(d => d.data()).filter((v: any) => v.visitDate >= lmStartStr && v.visitDate <= lmEndStr)
+          const lmReports = rSnap.docs.map(d => d.data()).filter((r: any) => {
+            const rDate = r.reportedAt?.toDate ? r.reportedAt.toDate() : new Date(r.reportedAt)
+            return rDate >= lmStartDate && rDate <= lmEndDate
+          })
 
-            const myBase = allDoctors.filter(d => String(d.assignedTo || '').toLowerCase().trim() === targetEmail)
-            const uniqueVisited = new Set(lmReports.map(r => String(r.doctorName || '').toLowerCase().trim())).size
-            
-            setLastMonthStats({
-              name: lmName,
-              planeadas: lmVisits.length,
-              reportadas: lmReports.length,
-              efectividad: lmVisits.length > 0 ? ((lmReports.length / lmVisits.length) * 100).toFixed(1) : '0',
-              cobertura: myBase.length > 0 ? ((uniqueVisited / myBase.length) * 100).toFixed(1) : '0',
-              pendientes: Math.max(0, lmVisits.length - lmReports.length)
-            })
-          }
+          const myBase = allDoctors.filter(d => String(d.assignedTo || '').toLowerCase().trim() === targetEmail)
+          const uniqueVisited = new Set(lmReports.map(r => String(r.doctorName || '').toLowerCase().trim())).size
+          
+          setLastMonthStats({
+            name: lmName,
+            planeadas: lmVisits.length,
+            reportadas: lmReports.length,
+            efectividad: lmVisits.length > 0 ? ((lmReports.length / lmVisits.length) * 100).toFixed(1) : '0',
+            cobertura: myBase.length > 0 ? ((uniqueVisited / myBase.length) * 100).toFixed(1) : '0',
+            pendientes: Math.max(0, lmVisits.length - lmReports.length)
+          })
         }
 
         setVisits(finalVisits)
@@ -111,10 +134,20 @@ export default function DashboardPage() {
       }
     }
     loadData()
-  }, [user, selectedRep, isAdmin])
+  }, [userEmail, selectedRep, isAdmin, isManager])
 
-  const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim()
-  const myBase = (isAdmin && selectedRep === 'Todos') ? doctors : doctors.filter(d => String(d.assignedTo || '').toLowerCase().trim() === targetEmail)
+  // Cálculos reactivos de métricas
+  const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
+  
+  const myBase = useMemo(() => {
+    if (isAdmin && selectedRep === 'Todos') return doctors;
+    if (isManager && selectedRep === 'Todos') {
+       const myTeam = TEAM_MAPPING[userEmail] || [];
+       return doctors.filter(d => myTeam.includes(String(d.assignedTo || '').toLowerCase().trim()));
+    }
+    return doctors.filter(d => String(d.assignedTo || '').toLowerCase().trim() === targetEmail);
+  }, [doctors, isAdmin, isManager, selectedRep, userEmail, targetEmail])
+
   const baseSize = myBase.length
   const uniqueVisited = new Set(reports.map(r => String(r.doctorName || '').toLowerCase().trim())).size
   const cobertura = baseSize > 0 ? ((uniqueVisited / baseSize) * 100).toFixed(1) : '0.0'
@@ -131,23 +164,30 @@ export default function DashboardPage() {
       <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-6">
         <div>
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">Panel de Control</h1>
-          <p className="text-gray-500 font-medium text-sm mt-2">{user?.email} {isAdmin ? '(Modo Gerente)' : ''}</p>
+          <p className="text-gray-500 font-medium text-sm mt-2">{user?.email} {isAdmin ? '(Modo Admin)' : isManager ? '(Modo Gerente)' : ''}</p>
         </div>
-        {/* ... (resto del header igual) */}
+        
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full xl:w-auto">
-          {isAdmin && (
+          {(isAdmin || isManager) && (
             <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 w-full sm:w-auto">
               <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600"><Filter size={20}/></div>
               <div className="pr-3">
                 <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Vista Activa</p>
-                <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none">
-                  <option value="Todos">Toda la Empresa (Global)</option>
+                <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none pr-4">
+                  {isAdmin ? (
+                    <option value="Todos">Toda la Empresa (Global)</option>
+                  ) : (
+                    <>
+                      <option value="Todos">Consolidado Equipo</option>
+                      <option value={userEmail}>Mi Gestión Propia</option>
+                    </>
+                  )}
                   {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
                 </select>
               </div>
             </div>
           )}
-          <div className="bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-200 flex items-center gap-4 min-w-[160px]">
+          <div className="bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-200 flex items-center gap-4 min-w-[160px] w-full sm:w-auto">
             <div className="bg-white/20 p-2 rounded-xl"><Zap size={20} /></div>
             <div>
               <p className="text-[10px] font-black uppercase opacity-80 mb-0.5">Visitas Hoy</p>
@@ -157,8 +197,8 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* --- BANNER DE LOGROS MES PASADO (INYECCIÓN) --- */}
-      {!isAdmin && lastMonthStats && showBanner && (
+      {/* --- BANNER DE LOGROS MES PASADO --- */}
+      {lastMonthStats && showBanner && (
         <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 rounded-[35px] p-6 mb-10 shadow-xl shadow-blue-100 border border-blue-400/20">
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
             <div className="bg-white/10 p-4 rounded-[24px] backdrop-blur-md border border-white/20">
@@ -166,10 +206,10 @@ export default function DashboardPage() {
             </div>
             <div className="flex-1 text-center md:text-left">
               <h3 className="text-white font-black uppercase italic tracking-tighter text-xl leading-none">
-                Tu desempeño en <span className="text-yellow-300">{lastMonthStats.name}</span>
+                {selectedRep !== userEmail && selectedRep !== 'Todos' ? `Desempeño de ${selectedRep.split('@')[0]} en` : 'Tu desempeño en'} <span className="text-yellow-300">{lastMonthStats.name}</span>
               </h3>
               <p className="text-blue-50 text-sm mt-2 font-medium leading-relaxed max-w-2xl">
-                Lograste <span className="font-black text-white">{lastMonthStats.planeadas} citas planeadas</span> con una efectividad de reporte del <span className="font-black text-white">{lastMonthStats.efectividad}%</span> y una cobertura del <span className="font-black text-white">{lastMonthStats.cobertura}%</span>.
+                Logró <span className="font-black text-white">{lastMonthStats.planeadas} citas planeadas</span> con una efectividad de reporte del <span className="font-black text-white">{lastMonthStats.efectividad}%</span> y una cobertura del <span className="font-black text-white">{lastMonthStats.cobertura}%</span>.
               </p>
               {lastMonthStats.pendientes > 0 && (
                 <div className="inline-flex items-center gap-2 mt-4 bg-red-500/20 px-3 py-1.5 rounded-xl border border-red-400/30">
@@ -184,14 +224,12 @@ export default function DashboardPage() {
               <X size={20} />
             </button>
           </div>
-          {/* Decoración abstracta */}
           <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
         </div>
       )}
 
       {/* --- TARJETAS DE INDICADORES --- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {/* Planeadas */}
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-blue-200 transition-colors">
           <div className="flex items-start justify-between w-full">
             <div>
@@ -201,12 +239,10 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CalendarDays size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-blue-500">Total:</span> Agendadas este mes
-            </p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-blue-500">Total:</span> Agendadas este mes</p>
           </div>
         </div>
-        {/* ... (Reportadas, Cobertura, Efectividad, Alerta siguen igual) */}
+        
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-indigo-200 transition-colors">
           <div className="flex items-start justify-between w-full">
             <div>
@@ -216,11 +252,10 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CheckCircle size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-indigo-500">Total:</span> Ejecutadas y validadas
-            </p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-indigo-500">Total:</span> Ejecutadas y validadas</p>
           </div>
         </div>
+        
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-green-200 transition-colors">
           <div className="flex items-start justify-between w-full">
             <div>
@@ -230,11 +265,10 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><Users size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-green-500">Fórmula:</span> (Visitados ÷ Base) × 100
-            </p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-green-500">Fórmula:</span> (Visitados ÷ Base) × 100</p>
           </div>
         </div>
+        
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-purple-200 transition-colors">
           <div className="flex items-start justify-between w-full">
             <div>
@@ -244,11 +278,10 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><BarChart3 size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-purple-500">Fórmula:</span> (Reportadas ÷ Planeadas) × 100
-            </p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-purple-500">Fórmula:</span> (Reportadas ÷ Planeadas) × 100</p>
           </div>
         </div>
+        
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-orange-200 transition-colors">
           <div className="flex items-start justify-between w-full">
             <div>
@@ -258,9 +291,7 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><AlertCircle size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight">
-              <span className="text-orange-500">Alerta:</span> Planeadas sin reporte
-            </p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-orange-500">Alerta:</span> Planeadas sin reporte</p>
           </div>
         </div>
       </div>
@@ -273,24 +304,32 @@ export default function DashboardPage() {
               <p className="text-gray-400 font-medium italic text-sm">No hay visitas planeadas para hoy.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
               {visitasHoy.map((v: any, i: number) => (
                 <div key={i} className="p-4 bg-gray-50 rounded-2xl flex justify-between items-center border border-gray-100">
                   <div>
-                    <p className="font-black text-gray-900 uppercase text-sm">{v.doctorName}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">{v.doctorDetails?.city || 'Sin ciudad'} • {v.doctorDetails?.specialty || 'General'}</p>
+                    <p className="font-black text-gray-900 uppercase text-sm leading-tight">{v.doctorName}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{v.doctorDetails?.city || 'Sin ciudad'} • {v.doctorDetails?.specialty || 'General'}</p>
+                    
+                    {/* FASE 3.0: Identificador de dueño de cita para vistas consolidadas */}
+                    {(isAdmin || isManager) && selectedRep === 'Todos' && (
+                       <p className="text-[9px] font-black text-indigo-500 mt-1 truncate">{v.userEmail}</p>
+                    )}
                   </div>
-                  <span className="text-xs font-black text-blue-600 bg-blue-100 px-3 py-1 rounded-lg">{v.startTime || '--:--'}</span>
+                  <span className="text-xs font-black text-blue-600 bg-blue-100 px-3 py-1 rounded-lg shrink-0 ml-3">{v.startTime || '--:--'}</span>
                 </div>
               ))}
             </div>
           )}
         </div>
+        
         <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
           <h2 className="text-lg font-black uppercase text-gray-900 mb-8 tracking-tighter w-full text-left">Cartera</h2>
-          <div className="bg-blue-50 w-full py-12 rounded-[30px] border border-blue-100">
+          <div className="bg-blue-50 w-full py-12 rounded-[30px] border border-blue-100 hover:scale-105 transition-transform">
             <p className="text-6xl font-black text-blue-600 tracking-tighter mb-2">{baseSize}</p>
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Asignados</p>
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
+               {selectedRep === 'Todos' ? 'Médicos Totales (Global)' : 'Médicos Asignados'}
+            </p>
           </div>
         </div>
       </div>
