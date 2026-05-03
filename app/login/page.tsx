@@ -25,7 +25,7 @@ export default function LoginPage() {
           id: currentUser.uid,
           email: currentUser.email || '',
           name: currentUser.displayName || 'Usuario Google',
-          role: 'visitor',
+          role: 'visitador', // ✅ CORREGIDO: de 'visitor' a 'visitador'
         })
         router.push('/dashboard')
       }
@@ -48,24 +48,20 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       await signInWithEmailAndPassword(auth, email, password)
-      // No hacemos push aquí, el Radar se encarga
     } catch (err: any) {
       setError('Credenciales incorrectas.')
       setIsLoading(false)
     }
   }
 
-  // LÓGICA HÍBRIDA: Intenta Popup primero (PC), si falla, usa Redirect (Móvil).
   const handleGoogleLogin = async () => {
     setError('')
     setIsLoading(true)
     const provider = new GoogleAuthProvider()
     
     try {
-      // 1. Intentamos el método original rápido (Perfecto para PC y Android)
       await signInWithPopup(auth, provider)
     } catch (err: any) {
-      // 2. Si el navegador (Safari/In-App) bloquea el popup, usamos la redirección
       if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
         try {
           await signInWithRedirect(auth, provider)
