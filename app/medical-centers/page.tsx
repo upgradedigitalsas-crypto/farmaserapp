@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { useAuthStore } from '@/lib/store'
+import { useAuthStore, TEAM_MAPPING } from '@/lib/store' 
 import { Search, MapPin, User, Star, Download, Navigation, Phone, Filter } from 'lucide-react'
 
 export default function MedicalCentersPage() {
@@ -8,47 +8,60 @@ export default function MedicalCentersPage() {
   const [doctors, setDoctors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  
-  // NUEVO: Estado para el filtro del Super Admin
   const [selectedRepFilter, setSelectedRepFilter] = useState('Todos')
 
-  // NUEVO: Validación de Super Admin
-  const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
+  const userEmail = user?.email?.toLowerCase().trim() || ''
+  // BLINDAJE CACHÉ: Evaluamos el rol, pero respaldamos con el correo por si tienen una sesión antigua activa.
+  const isAdmin = user?.role === 'admin' || userEmail === 'entrenamientofarmaser@gmail.com'
+  const isManager = user?.role === 'manager' || Object.keys(TEAM_MAPPING).includes(userEmail)
 
   useEffect(() => {
-    fetch('/api/doctors').then(res => res.json()).then(data => {
-      setDoctors(Array.isArray(data) ? data : [])
-      setLoading(false)
-    }).catch(() => setLoading(false))
+    fetch('/api/doctors')
+      .then(res => res.json())
+      .then(data => {
+        setDoctors(Array.isArray(data) ? data : [])
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
   }, [])
 
-  // NUEVO: Generar lista de visitadores solo para el Admin
-  const repsList = useMemo(() => {
-    if (!isAdmin) return []
-    return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#')))).sort()
-  }, [doctors, isAdmin])
+  const filterOptions = useMemo(() => {
+    if (isAdmin) {
+      return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#')))).sort()
+    } else if (isManager) {
+      const myTeam = TEAM_MAPPING[userEmail] || []
+      return myTeam.filter(email => email !== userEmail).sort() 
+    }
+    return []
+  }, [doctors, isAdmin, isManager, userEmail])
 
-  // AJUSTE: Reemplaza "myDocs" para que se adapte al rol
   const baseDocs = useMemo(() => {
-    if (!isAdmin) {
-      // Visitador normal: Ve exactamente lo mismo que antes (su correo)
-      const email = user?.email?.toLowerCase().trim()
-      return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email)
-    } else {
-      // Admin: Ve toda la empresa o filtra por el dropdown
+    if (isAdmin) {
       if (selectedRepFilter === 'Todos') return doctors
       return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === selectedRepFilter)
+    } 
+    
+    if (isManager) {
+      const myTeam = TEAM_MAPPING[userEmail] || []
+      if (selectedRepFilter === 'Todos') {
+        return doctors.filter((d: any) => myTeam.includes(String(d.assignedTo || '').toLowerCase().trim()))
+      } else if (selectedRepFilter === 'Mi Gestion') {
+        return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === userEmail)
+      } else {
+        return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === selectedRepFilter)
+      }
     }
-  }, [doctors, user, isAdmin, selectedRepFilter])
 
-  // AJUSTE: El buscador ahora usa baseDocs
+    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === userEmail)
+    
+  }, [doctors, isAdmin, isManager, userEmail, selectedRepFilter])
+
   const filteredDocs = useMemo(() => {
     if (!searchTerm) return baseDocs
     const t = searchTerm.toLowerCase()
     return baseDocs.filter(d => d.name.toLowerCase().includes(t) || d.specialty.toLowerCase().includes(t))
   }, [baseDocs, searchTerm])
 
-  // INTACTO: La función de exportar no se tocó
   const exportCSV = (dataToExport: any[], fileName: string) => {
     if (dataToExport.length === 0) return alert('No hay datos para exportar.');
 
@@ -83,15 +96,14 @@ export default function MedicalCentersPage() {
       <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-6">
         <div>
           <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">
-            {isAdmin ? 'Directorio Maestro' : 'Mi Base Asignada'}
+            {isAdmin ? 'Directorio Maestro' : isManager ? 'Directorio de Equipo' : 'Mi Base Asignada'}
           </h1>
           <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2">Total en cartera: {baseDocs.length}</p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           
-          {/* NUEVO: Dropdown de filtro solo visible para Super Admin */}
-          {isAdmin && (
+          {(isAdmin || isManager) && (
             <div className="bg-white border-2 border-indigo-100 p-2 rounded-xl flex items-center gap-2 w-full sm:w-auto mr-2">
               <Filter size={16} className="text-indigo-600 ml-2" />
               <select 
@@ -99,8 +111,15 @@ export default function MedicalCentersPage() {
                 onChange={(e) => setSelectedRepFilter(e.target.value)}
                 className="text-[10px] font-black uppercase text-gray-700 bg-transparent outline-none cursor-pointer pr-4"
               >
-                <option value="Todos">Toda La Empresa</option>
-                {repsList.map((rep) => (
+                {isAdmin ? (
+                  <option value="Todos">Toda La Empresa</option>
+                ) : (
+                  <>
+                    <option value="Todos">Consolidado Equipo</option>
+                    <option value="Mi Gestion">Mi Gestión Propia</option>
+                  </>
+                )}
+                {filterOptions.map((rep) => (
                   <option key={rep} value={rep}>{rep}</option>
                 ))}
               </select>
@@ -115,7 +134,7 @@ export default function MedicalCentersPage() {
           </button>
           
           <button 
-            onClick={() => exportCSV(baseDocs, isAdmin ? 'Directorio_Empresa.csv' : 'Directorio_Visitador.csv')} 
+            onClick={() => exportCSV(baseDocs, isAdmin ? 'Directorio_Empresa.csv' : isManager ? 'Directorio_Equipo.csv' : 'Directorio_Visitador.csv')} 
             className="w-full sm:w-auto bg-blue-600 text-white text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 hover:bg-blue-700 active:scale-95 transition-all"
           >
             <Download size={16} /> Exportar Toda La Base
@@ -162,8 +181,7 @@ export default function MedicalCentersPage() {
                     </div>
                   )}
 
-                  {/* NUEVO: Pequeña etiqueta visual para el Admin de a quién pertenece el médico */}
-                  {isAdmin && selectedRepFilter === 'Todos' && doc.assignedTo && (
+                  {(isAdmin || isManager) && (selectedRepFilter === 'Todos') && doc.assignedTo && (
                     <div className="flex items-center gap-1 text-indigo-400 border-l pl-4 ml-2">
                       <User size={12} />
                       <span className="text-[10px] font-black uppercase italic">{doc.assignedTo}</span>
@@ -179,3 +197,4 @@ export default function MedicalCentersPage() {
     </div>
   )
 }
+         
