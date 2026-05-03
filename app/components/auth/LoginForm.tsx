@@ -13,7 +13,7 @@ export default function LoginForm() {
     setLoading(true)
     
     if (email.trim()) {
-      useAuthStore.setState({ user: { id: '1', email: email.trim(), name: 'Visitador', role: 'visitor' } })
+      useAuthStore.setState({ user: { id: '1', email: email.trim(), name: 'Visitador', role: 'visitador' } })
       router.push('/visits')
     }
     
