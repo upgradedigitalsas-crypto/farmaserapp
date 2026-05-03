@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
-// Añadimos el icono History
 import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, AlertCircle, Filter, Download, Briefcase, History } from 'lucide-react'
 
 // 🛡️ CAPTURA DE GPS SILENCIOSA
@@ -34,7 +33,6 @@ export default function ReportsPage() {
   const [auditReports, setAuditReports] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   
-  // NUEVOS ESTADOS PARA EL HISTORIAL Y PESTAÑAS
   const [repHistory, setRepHistory] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'pendientes' | 'historial'>('pendientes')
 
@@ -46,7 +44,6 @@ export default function ReportsPage() {
   const todayStr = new Date().toISOString().slice(0, 10)
   const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
 
-  // 1. CARGA INICIAL (Médicos y Productos para el catálogo)
   useEffect(() => {
     fetch('/api/doctors').then(res => res.json()).then(data => setDoctors(Array.isArray(data) ? data : []))
     fetch('/api/products').then(res => res.json()).then(data => setProducts(Array.isArray(data) ? data : []))
@@ -56,7 +53,6 @@ export default function ReportsPage() {
     return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
   }, [doctors])
 
-  // 2. AUDITORÍA (PARA ADMIN: TABLA PROFESIONAL INTACTA)
   useEffect(() => {
     if (!isAdmin) return;
     const fetchAudit = async () => {
@@ -79,13 +75,11 @@ export default function ReportsPage() {
     fetchAudit()
   }, [isAdmin, selectedRep])
 
-  // 3. VISITAS DE HOY E HISTORIAL DE 30 DÍAS (PARA VISITADORES)
   useEffect(() => {
     if (isAdmin) return;
     const fetchRepData = async () => {
       setLoading(true)
       try {
-        // A. Cargar Pendientes de Hoy
         const qPlanned = query(collection(db, 'planned_visits'), 
           where('userEmail', '==', user?.email?.toLowerCase()), 
           where('visitDate', '==', todayStr)
@@ -93,7 +87,6 @@ export default function ReportsPage() {
         const snapPlanned = await getDocs(qPlanned)
         setVisits(snapPlanned.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter((v: any) => v.status === 'Planeada'))
 
-        // B. Cargar Historial (Últimos 30 días)
         const qReports = query(collection(db, 'visit_reports'),
           where('userEmail', '==', user?.email?.toLowerCase())
         )
@@ -109,7 +102,7 @@ export default function ReportsPage() {
         }).sort((a, b) => {
            const dA = a.reportedAt?.toDate ? a.reportedAt.toDate() : new Date(a.reportedAt)
            const dB = b.reportedAt?.toDate ? b.reportedAt.toDate() : new Date(b.reportedAt)
-           return dB.getTime() - dA.getTime() // Más recientes primero
+           return dB.getTime() - dA.getTime()
         })
 
         setRepHistory(history)
@@ -134,7 +127,6 @@ export default function ReportsPage() {
 
       const newReportRef = await addDoc(collection(db, 'visit_reports'), reportData)
       
-      // Actualizar interfaz sin recargar página
       setVisits(prev => prev.filter(v => v.id !== selectedVisit.id));
       setRepHistory(prev => [{ id: newReportRef.id, ...reportData }, ...prev]);
 
@@ -163,7 +155,7 @@ export default function ReportsPage() {
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">
             {isAdmin ? 'Auditoría Mensual' : 'Reportar Cita'}
           </h1>
-          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2 italic italic">
+          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2 italic">
             {isAdmin ? `VISTA DE CONTROL: ${selectedRep}` : `GESTIÓN DEL DÍA: ${todayStr}`}
           </p>
         </div>
@@ -183,7 +175,6 @@ export default function ReportsPage() {
       </header>
 
       {isAdmin ? (
-        /* 📊 VISTA SUPER ADMIN: TABLA PROFESIONAL */
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
           <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-white">
              <div className="flex items-center gap-3">
@@ -213,7 +204,7 @@ export default function ReportsPage() {
                   <tr><td colSpan={6} className="p-20 text-center text-gray-300 font-bold uppercase text-xs">Sin registros para {selectedRep}</td></tr>
                 ) : auditReports.map((r) => (
                   <tr key={r.id} className="hover:bg-blue-50/30 transition-colors">
-                    <td className="px-8 py-5 text-[10px] font-bold text-gray-400 whitespace-nowrap">{r.reportedAt?.toDate().toLocaleDateString()}</td>
+                    <td className="px-8 py-5 text-[10px] font-bold text-gray-400 whitespace-nowrap">{r.reportedAt?.toDate ? r.reportedAt.toDate().toLocaleDateString() : new Date(r.reportedAt).toLocaleDateString()}</td>
                     <td className="px-8 py-5 text-xs font-black text-blue-600 italic underline decoration-blue-100">{r.userEmail}</td>
                     <td className="px-8 py-5 text-xs font-black text-gray-900 uppercase">{r.doctorName}</td>
                     <td className="px-8 py-5 text-center">
@@ -230,12 +221,9 @@ export default function ReportsPage() {
           </div>
         </div>
       ) : (
-        /* 📱 VISTA VISITADOR: TABS Y FORMULARIO */
         <div className="max-w-[900px]">
            {!selectedVisit ? (
              <div className="space-y-4">
-               
-               {/* 🗂️ SELECTOR DE PESTAÑAS (TABS) */}
                <div className="flex gap-3 mb-8">
                  <button 
                    onClick={() => setActiveTab('pendientes')} 
@@ -253,7 +241,6 @@ export default function ReportsPage() {
 
                {loading ? <div className="p-20 text-center font-black text-gray-300 animate-pulse uppercase tracking-widest">Sincronizando...</div> :
                 activeTab === 'pendientes' ? (
-                  /* 📦 TAB 1: PENDIENTES DE HOY */
                   visits.length === 0 ? (
                     <div className="bg-white p-12 rounded-[40px] text-center border border-dashed border-gray-200">
                       <Package className="text-gray-200 mb-4 mx-auto" size={48} />
@@ -280,7 +267,6 @@ export default function ReportsPage() {
                     ))
                   )
                 ) : (
-                  /* 📜 TAB 2: HISTORIAL ÚLTIMOS 30 DÍAS */
                   repHistory.length === 0 ? (
                     <div className="bg-white p-12 rounded-[40px] text-center border border-dashed border-gray-200">
                       <History className="text-gray-200 mb-4 mx-auto" size={48} />
@@ -288,19 +274,33 @@ export default function ReportsPage() {
                     </div>
                   ) : (
                     repHistory.map(r => (
-                      <div key={r.id} className="w-full bg-white p-6 rounded-[35px] border border-gray-100 flex items-center justify-between shadow-sm">
-                        <div className="flex items-center gap-4 text-left">
-                           <div className="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center"><CheckCircle size={24}/></div>
-                           <div>
-                             <p className="font-black text-gray-900 uppercase leading-none mb-1 text-sm">{r.doctorName}</p>
-                             <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-gray-400 uppercase mt-1.5">
-                               <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-md">{r.reportedAt?.toDate().toLocaleDateString()}</span>
+                      <div key={r.id} className="w-full bg-white p-6 md:p-8 rounded-[35px] border border-gray-100 flex flex-col md:flex-row md:items-center justify-between shadow-sm gap-4">
+                        <div className="flex items-start gap-4 text-left flex-1">
+                           <div className="w-12 h-12 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0"><CheckCircle size={24}/></div>
+                           <div className="min-w-0 flex-1">
+                             <p className="font-black text-gray-900 uppercase leading-none mb-2 text-sm truncate">{r.doctorName}</p>
+                             <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold text-gray-400 uppercase">
+                               <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-md">{r.reportedAt?.toDate ? r.reportedAt.toDate().toLocaleDateString() : new Date(r.reportedAt).toLocaleDateString()}</span>
                                <span className={r.status === 'Realizada' ? 'text-green-500' : 'text-orange-500'}>{r.status}</span>
                              </div>
+                             
+                             {/* --- INYECCIÓN DE COMENTARIOS DE SEGUIMIENTO --- */}
+                             {r.observations && (
+                               <div className="mt-3 p-3 bg-gray-50 rounded-2xl border-l-4 border-blue-400">
+                                 <p className="text-[10px] font-black text-blue-600 uppercase tracking-tighter mb-1 flex items-center gap-1">
+                                   <MessageSquare size={10} /> Seguimiento Anterior:
+                                 </p>
+                                 <p className="text-[11px] text-gray-600 font-medium leading-relaxed italic">
+                                   "{r.observations}"
+                                 </p>
+                               </div>
+                             )}
                            </div>
                         </div>
                         <div className="text-right hidden sm:block max-w-[200px]">
-                          <p className="text-[9px] font-bold text-gray-400 truncate">{r.samples?.length > 0 ? r.samples.map((s:any) => `${s.qty}x ${s.name}`).join(', ') : 'Sin muestras'}</p>
+                          <p className="text-[9px] font-bold text-gray-400 italic">
+                            {r.samples?.length > 0 ? r.samples.map((s:any) => `${s.qty}x ${s.name}`).join(', ') : 'Sin muestras'}
+                          </p>
                         </div>
                       </div>
                     ))
@@ -308,7 +308,6 @@ export default function ReportsPage() {
                 )}
              </div>
            ) : (
-             /* 🛠️ FORMULARIO DE REPORTE CON TUS ESTILOS PERSONALIZADOS */
              <div className="bg-white p-8 rounded-[40px] shadow-2xl border border-gray-100 animate-in zoom-in-95">
                 <button onClick={() => { setSelectedVisit(null); setObs(''); setSamples([]); }} className="mb-8 text-gray-400 font-black uppercase text-[10px] flex items-center gap-2 hover:text-red-500 transition-colors">
                   <X size={14}/> Cancelar y Volver
@@ -322,7 +321,6 @@ export default function ReportsPage() {
                 </div>
 
                 <div className="space-y-12">
-                  {/* ESTADO */}
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400 block mb-4 tracking-widest text-center">Estado del encuentro</label>
                     <div className="flex gap-4">
@@ -334,7 +332,6 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  {/* CATÁLOGO Y MUESTRAS MÉDICAS */}
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400 block mb-4 tracking-widest text-center">Entrega de Muestras Médicas</label>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mb-8">
@@ -349,7 +346,6 @@ export default function ReportsPage() {
                       ))}
                     </div>
                     
-                    {/* TUS ESTILOS PERSONALIZADOS DE LISTADO DE MUESTRAS */}
                     <div className="space-y-3">
                       {samples.map(s => (
                         <div key={s.productId} className="flex items-center justify-between bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-sm animate-in slide-in-from-right duration-300">
@@ -364,18 +360,21 @@ export default function ReportsPage() {
                     </div>
                   </div>
 
-                  {/* OBSERVACIONES Y BOTÓN GUARDAR */}
                   <div>
                     <label className="text-[10px] font-black uppercase text-gray-400 block mb-4 tracking-widest text-center">Observaciones y Notas</label>
                     <div className="relative">
                       <MessageSquare className="absolute top-5 left-5 text-gray-300" size={20}/>
                       <textarea value={obs} onChange={e => setObs(e.target.value)} rows={4} className="w-full bg-gray-50 rounded-[30px] p-6 pl-14 text-sm font-bold border-none focus:ring-2 focus:ring-blue-600 shadow-inner" placeholder="Escribe aquí los detalles del encuentro..."/>
                     </div>
-                    
-                    <button onClick={handleSaveReport} disabled={saving} className="mt-8 w-full bg-green-600 text-white font-black py-7 rounded-[30px] uppercase text-xs tracking-[0.3em] shadow-2xl shadow-green-200 flex items-center justify-center gap-4 active:scale-95 transition-all">
-                      {saving ? <Loader2 className="animate-spin" size={22}/> : <CheckCircle size={22}/>} Finalizar y Guardar Reporte
-                    </button>
                   </div>
+
+                  <button 
+                    disabled={saving} 
+                    onClick={handleSaveReport} 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 rounded-[30px] font-black uppercase tracking-widest shadow-2xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-3"
+                  >
+                    {saving ? <Loader2 className="animate-spin" /> : <><CheckCircle size={20}/> Guardar Reporte Final</>}
+                  </button>
                 </div>
              </div>
            )}
