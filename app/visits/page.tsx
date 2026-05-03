@@ -73,15 +73,12 @@ export default function PlanningPage() {
       
       const vRef = collection(db, 'planned_visits')
       
-      // Lógica de Consulta Adaptada para Admin y Manager
       let q;
       if (isAdmin && selectedRep === 'Todos') {
-         q = query(vRef); // Super Admin ve absolutamente todo
+         q = query(vRef);
       } else if (isManager && selectedRep === 'Todos') {
-         // Manager ve TODO su equipo (No usamos 'in' porque Firebase limita a 10, es mejor traer todo y filtrar en memoria)
          q = query(vRef); 
       } else {
-         // Consulta específica a un correo (Sea el propio o el seleccionado en el filtro)
          const emailTarget = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail;
          q = query(vRef, where('userEmail', '==', emailTarget));
       }
@@ -89,7 +86,6 @@ export default function PlanningPage() {
       const snap = await getDocs(q)
       let all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       
-      // Filtro adicional en memoria para 'Consolidado Equipo' del Manager
       if (isManager && selectedRep === 'Todos') {
         const myTeam = TEAM_MAPPING[userEmail] || [];
         all = all.filter((v: any) => myTeam.includes(String(v.userEmail || '').toLowerCase().trim()));
@@ -101,7 +97,6 @@ export default function PlanningPage() {
 
   useEffect(() => { fetchData() }, [user, selectedRep])
 
-  // Lógica para buscar el último comentario
   useEffect(() => {
     if (!selectedDoctor) {
       setLastComment(null);
@@ -143,7 +138,6 @@ export default function PlanningPage() {
     fetchLastComment();
   }, [selectedDoctor, user, selectedRep, isAdmin, isManager, userEmail]);
 
-  // Lista para el Dropdown
   const repsList = useMemo(() => {
     if (isAdmin) {
       return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#')))).sort()
@@ -275,7 +269,6 @@ export default function PlanningPage() {
           <p className="text-gray-500 font-medium capitalize mt-2">{monthName} {currentYear}</p>
         </div>
         
-        {/* FASE 3.0: Dropdown visible para Admin Y Manager */}
         {(isAdmin || isManager) && (
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <div className="bg-white p-2 rounded-2xl shadow-sm border flex items-center gap-3 w-full sm:w-auto">
@@ -301,8 +294,8 @@ export default function PlanningPage() {
 
       <div className="flex flex-col gap-10">
         
-        {/* Formulario Oculto si se selecciona "Todos" o "Consolidado" */}
-        {selectedRep !== 'Todos' && (
+        {/* CORRECCIÓN: Mostrar formulario si NO es Admin/Manager (Visitador) O si hay un rep seleccionado */}
+        {((!isAdmin && !isManager) || selectedRep !== 'Todos') && (
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100">
@@ -381,7 +374,6 @@ export default function PlanningPage() {
                   <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
                 </div>
 
-                {/* --- SEGUIMIENTO ANTERIOR --- */}
                 {lastComment && (
                   <div className="mb-6 pt-4 border-t border-gray-100">
                     <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 flex items-center gap-1">
@@ -416,7 +408,6 @@ export default function PlanningPage() {
           </div>
         )}
 
-        {/* Calendario Mensual */}
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
@@ -428,18 +419,15 @@ export default function PlanningPage() {
                   <div className="space-y-1.5 overflow-y-auto custom-scrollbar pr-1 flex-1">
                     {visitsOnDay.map((v: any) => (
                       <button key={v.id} onClick={() => {
-                        // Un manager solo puede editar si la cita es de él mismo
                         if (isAdmin || userEmail === v.userEmail) {
                           startEdit(v)
                         } else {
-                           // Modo Solo Lectura: Oculta el form y alerta
                            alert(`Esta cita pertenece a ${v.userEmail}. No puedes editarla.`);
                         }
                       }} className="w-full text-left p-2 rounded-xl bg-white border border-blue-100 shadow-sm hover:shadow-md transition-all group">
                         <p className="text-[9px] font-black text-gray-900 uppercase leading-tight line-clamp-2 group-hover:text-blue-600">{v.doctorName}</p>
                         <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase italic">{v.doctorDetails?.city || '---'}</p>
                         
-                        {/* FASE 3.0: Muestra a quién pertenece la cita si está en vista 'Consolidado' o Admin */}
                         {(isAdmin || isManager) && selectedRep === 'Todos' && (
                            <p className="text-[7px] font-bold text-indigo-500 mt-0.5 truncate">{v.userEmail}</p>
                         )}
@@ -455,7 +443,6 @@ export default function PlanningPage() {
             })}
           </div>
         </div>
-
       </div>
     </div>
   )
