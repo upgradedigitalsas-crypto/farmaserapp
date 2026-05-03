@@ -2,8 +2,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore } from '@/lib/store'
 import { db } from '@/lib/firebase'
-import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download } from 'lucide-react'
+import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc, orderBy, limit } from 'firebase/firestore'
+import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download, MessageSquare } from 'lucide-react'
 
 // === LÓGICA AUTOMÁTICA DE FECHAS ===
 const now = new Date();
@@ -29,7 +29,6 @@ const getFingerprintLocation = () => {
   });
 };
 
-// === FUNCIÓN DE NORMALIZACIÓN FLEXIBLE ===
 const normalizeStr = (str: string) => {
   if (!str) return '';
   return str
@@ -47,6 +46,7 @@ export default function PlanningPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedDoctor, setSelectedDoctor] = useState<any>(null)
+  const [lastComment, setLastComment] = useState<string | null>(null) // NUEVO: Estado para el seguimiento
   
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCity, setFilterCity] = useState('')
@@ -77,6 +77,33 @@ export default function PlanningPage() {
   }
 
   useEffect(() => { fetchData() }, [user, selectedRep])
+
+  // === LÓGICA PARA BUSCAR EL ÚLTIMO COMENTARIO (UX) ===
+  useEffect(() => {
+    if (!selectedDoctor) {
+      setLastComment(null);
+      return;
+    }
+    const fetchLastComment = async () => {
+      try {
+        const q = query(
+          collection(db, 'visit_reports'),
+          where('doctorName', '==', selectedDoctor.name),
+          orderBy('reportedAt', 'desc'),
+          limit(1)
+        );
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          setLastComment(snap.docs[0].data().observations);
+        } else {
+          setLastComment(null);
+        }
+      } catch (e) {
+        console.error("Error buscando último seguimiento:", e);
+      }
+    };
+    fetchLastComment();
+  }, [selectedDoctor]);
 
   const repsList = useMemo(() => {
     if (!isAdmin) return []
@@ -163,7 +190,6 @@ export default function PlanningPage() {
   const myFullDocsList = useMemo(() => {
     const email = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim()
     if (!email && isAdmin) return []
-    // Eliminada la restricción de ocultar médicos planeados para que el buscador siempre funcione
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email).sort((a: any, b: any) => a.name.localeCompare(b.name))
   }, [doctors, user, selectedRep, isAdmin])
 
@@ -171,7 +197,6 @@ export default function PlanningPage() {
   const specialtiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.specialty).filter(Boolean))).sort(), [myFullDocsList])
   const categoriesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.category).filter(Boolean))).sort(), [myFullDocsList])
 
-  // === MOTOR DE BÚSQUEDA FLEXIBLE ===
   const myDocsFiltered = useMemo(() => {
     if (selectedDoctor) return [];
     if (!searchTerm.trim() && !filterCity && !filterSpecialty && !filterCategory) return [];
@@ -276,29 +301,36 @@ export default function PlanningPage() {
             )}
 
             {selectedDoctor && (
-              <div className={`p-8 rounded-[40px] shadow-xl border-2 transition-all ${editingId ? 'bg-orange-50 border-orange-400' : 'bg-white border-blue-600'}`}>
-                <div className="flex justify-between items-start mb-6">
+              <div className={`p-8 rounded-[40px] shadow-xl border-2 transition-all ${editingId ? 'bg-orange-50 border-orange-400' : 'bg-white border-blue-600 animate-in zoom-in-95'}`}>
+                <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white flex-shrink-0 ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
                     <div>
-                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{selectedDoctor.name}</h2>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-gray-400 uppercase mt-1">
+                      <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter leading-tight mb-1">{selectedDoctor.name}</h2>
+                      <div className="flex flex-wrap items-center gap-x-2 text-[10px] font-bold text-gray-400 uppercase">
                         {selectedDoctor.category && <span className="text-blue-500">CAT: {selectedDoctor.category}</span>}
                         <span className="opacity-20">|</span>
                         <span>{selectedDoctor.specialty}</span>
                         <span className="opacity-20">|</span>
                         <span>{selectedDoctor.city}</span>
-                        {selectedDoctor.address && selectedDoctor.address !== 'Principal' && (
-                          <><span className="opacity-20">|</span><span>DIR: {selectedDoctor.address}</span></>
-                        )}
-                        {selectedDoctor.phone && (
-                          <><span className="opacity-20">|</span><span className="flex items-center gap-1 text-green-600 font-black"><Phone size={10} fill="currentColor" /> {selectedDoctor.phone}</span></>
-                        )}
                       </div>
                     </div>
                   </div>
                   <button onClick={resetForm} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={16}/></button>
                 </div>
+
+                {/* --- SEGUIMIENTO ANTERIOR (DISEÑO FLAT) --- */}
+                {lastComment && (
+                  <div className="mb-6 pt-4 border-t border-gray-100">
+                    <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-1 flex items-center gap-1">
+                      <MessageSquare size={12} /> Último Seguimiento:
+                    </p>
+                    <p className="text-xs text-gray-500 font-medium italic leading-relaxed">
+                      "{lastComment}"
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
                   <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm">
@@ -311,7 +343,7 @@ export default function PlanningPage() {
                   <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
                   <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
                 </div>
-                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}>
+                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}>
                   {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
                 </button>
                 {editingId && (
