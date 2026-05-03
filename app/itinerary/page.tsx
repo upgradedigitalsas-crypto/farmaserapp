@@ -1,3 +1,4 @@
+
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
@@ -55,11 +56,10 @@ export default function ItineraryPage() {
   }, [doctors, isAdmin, isManager, userEmail])
 
   const fetchTrips = async () => {
-    // 🛡️ CORRECCIÓN: Definimos targetEmail inteligentemente
+    // 🛡️ CORRECCIÓN SEGURIDAD: targetEmail inteligente
     const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
     
-    // 🛡️ CORRECCIÓN: El bloqueo de "Todos" solo aplica si el usuario es JEFE.
-    // Un visitador normal no tiene el dropdown, por lo que debe pasar directo.
+    // 🛡️ CORRECCIÓN VISIBILIDAD: El bloqueo solo aplica si el JEFE no ha seleccionado a nadie.
     if ((isAdmin || isManager) && selectedRep === 'Todos') {
       setTrips([])
       setLoading(false)
@@ -77,7 +77,7 @@ export default function ItineraryPage() {
       const querySnapshot = await getDocs(q)
       const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       
-      // Filtramos para mostrar solo el mes actual en el calendario
+      // Sincronización con el mes actual
       setTrips(data.filter((t: any) => t.startDate?.includes(filterKey) || t.endDate?.includes(filterKey)))
     } catch (e) { 
       console.error(e) 
@@ -114,7 +114,7 @@ export default function ItineraryPage() {
   }
 
   const handleDelete = async () => {
-    if (!editingId || !window.confirm('¿Eliminar ruta?')) return;
+    if (!editingId || !window.confirm('¿Eliminar esta ruta del itinerario?')) return;
     setSaving(true);
     try {
       await deleteDoc(doc(db, 'itineraries', editingId));
@@ -191,12 +191,12 @@ export default function ItineraryPage() {
               <CalendarDays className="text-gray-300" size={48} />
             </div>
             <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter mb-2">Calendario en Pausa</h2>
-            <p className="text-gray-500 font-medium text-sm max-w-sm">Para ver o gestionar un itinerario, por favor selecciona a un visitador específico desde el filtro superior.</p>
+            <p className="text-gray-500 font-medium text-sm max-w-sm">Para ver o gestionar un itinerario, selecciona a un visitador específico arriba.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Formulario: Visible para el visitador o para el Admin/Manager sobre su propia cuenta */}
+          {/* Formulario Dinámico */}
           {(!isAdmin && !isManager) || (selectedRep === userEmail) || isAdmin ? (
             <div className={`p-8 rounded-[40px] shadow-sm border transition-all h-fit ${editingId ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'}`}>
               <div className="flex justify-between items-center mb-6">
@@ -257,28 +257,49 @@ export default function ItineraryPage() {
                <User className="text-gray-200 mb-4" size={48} />
                <p className="text-gray-400 font-bold text-xs uppercase">Estás auditando a:</p>
                <p className="text-blue-600 font-black text-sm truncate w-full">{selectedRep}</p>
-               <p className="mt-4 text-[10px] text-gray-300 font-medium leading-relaxed italic">Como Gerente, solo puedes ver el calendario. Las modificaciones solo las puede hacer el visitador o el Administrador.</p>
+               <p className="mt-4 text-[10px] text-gray-300 font-medium leading-relaxed italic italic">Modo lectura activa para gerencia.</p>
             </div>
           )}
 
-          {/* Calendario de Itinerario */}
+          {/* Calendario con Estilo Visual Restaurado */}
           <div className="lg:col-span-2">
             <div className="grid grid-cols-4 md:grid-cols-7 gap-2 lg:gap-3">
               {days.map(d => {
                 const trip = getTripForDay(d)
                 return (
-                  <div key={d} className={`aspect-square md:aspect-auto md:min-h-[110px] p-3 rounded-[28px] border transition-all flex flex-col relative overflow-hidden ${trip ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-100 scale-[1.02] z-10' : 'bg-white border-gray-50'}`}>
-                    <span className={`text-[10px] font-black mb-1 ${trip ? 'text-white' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')}</span>
+                  <div 
+                    key={d} 
+                    className={`aspect-square md:aspect-auto md:min-h-[120px] p-3 rounded-[32px] border-2 transition-all flex flex-col relative overflow-hidden ${
+                      trip ? 'border-blue-600 bg-white shadow-xl scale-[1.02] z-10' : 'bg-white border-gray-100 shadow-sm'
+                    }`}
+                  >
+                    <span className={`text-[10px] font-black mb-2 ${trip ? 'text-blue-600' : 'text-gray-300'}`}>
+                      {d.toString().padStart(2, '0')}
+                    </span>
+                    
                     {trip && (
-                      <button onClick={() => ((isAdmin || userEmail === selectedRep || (!isAdmin && !isManager)) && startEdit(trip))} className="flex-1 flex flex-col text-left">
-                        <p className="text-[10px] font-black text-white uppercase leading-tight line-clamp-2">{trip.city}</p>
-                        <div className="mt-auto flex items-center gap-1 text-white/60">
-                          <Clock size={8} />
-                          <span className="text-[8px] font-bold">{trip.startTime}</span>
+                      <button 
+                        onClick={() => ((isAdmin || userEmail === selectedRep || (!isAdmin && !isManager)) && startEdit(trip))} 
+                        className="flex-1 flex flex-col items-center justify-center text-center w-full"
+                      >
+                        {/* Píldora de Ciudad Sólida Azul */}
+                        <div className="bg-blue-600 px-3 py-1.5 rounded-full shadow-md w-full mb-2">
+                          <p className="text-[9px] font-black text-white uppercase truncate">
+                            {trip.city}
+                          </p>
+                        </div>
+                        
+                        {/* Horario con Icono */}
+                        <div className="flex items-center gap-1 text-gray-400">
+                          <Clock size={10} className="text-blue-500" />
+                          <span className="text-[8px] font-black">
+                            {trip.startTime} - {trip.endTime}
+                          </span>
                         </div>
                       </button>
                     )}
-                    {trip && <div className="absolute -right-2 -bottom-2 opacity-10 text-white"><MapPin size={40} /></div>}
+                    
+                    {trip && <div className="absolute -right-1 -bottom-1 opacity-[0.03] text-blue-900"><MapPin size={48} /></div>}
                   </div>
                 )
               })}

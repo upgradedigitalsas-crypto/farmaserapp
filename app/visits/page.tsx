@@ -294,7 +294,7 @@ export default function PlanningPage() {
 
       <div className="flex flex-col gap-10">
         
-        {/* CORRECCIÓN: Mostrar formulario si NO es Admin/Manager (Visitador) O si hay un rep seleccionado */}
+        {/* Formulario de Planeación */}
         {((!isAdmin && !isManager) || selectedRep !== 'Todos') && (
           <div className="w-full space-y-6">
             {!editingId && (
@@ -408,6 +408,7 @@ export default function PlanningPage() {
           </div>
         )}
 
+        {/* Calendario Mensual */}
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
@@ -417,24 +418,39 @@ export default function PlanningPage() {
                 <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visitsOnDay.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
                   <span className={`text-[11px] font-black mb-2 ${visitsOnDay.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / {currentMonthStr}</span>
                   <div className="space-y-1.5 overflow-y-auto custom-scrollbar pr-1 flex-1">
+                    
+                    {/* Tarjetas de Visita Estilo Sólido Azul */}
                     {visitsOnDay.map((v: any) => (
-                      <button key={v.id} onClick={() => {
-                        if (isAdmin || userEmail === v.userEmail) {
-                          startEdit(v)
-                        } else {
-                           alert(`Esta cita pertenece a ${v.userEmail}. No puedes editarla.`);
-                        }
-                      }} className="w-full text-left p-2 rounded-xl bg-white border border-blue-100 shadow-sm hover:shadow-md transition-all group">
-                        <p className="text-[9px] font-black text-gray-900 uppercase leading-tight line-clamp-2 group-hover:text-blue-600">{v.doctorName}</p>
-                        <p className="text-[8px] font-bold text-gray-400 mt-1 uppercase italic">{v.doctorDetails?.city || '---'}</p>
+                      <button 
+                        key={v.id} 
+                        onClick={() => {
+                          if (isAdmin || userEmail === v.userEmail) {
+                            startEdit(v)
+                          } else {
+                            alert(`Esta cita pertenece a ${v.userEmail}. No puedes editarla.`);
+                          }
+                        }} 
+                        className="w-full text-left p-2.5 rounded-xl bg-blue-600 shadow-md hover:bg-blue-700 transition-all group mb-1.5 border border-blue-500"
+                      >
+                        <p className="text-[10px] font-black text-white uppercase leading-tight line-clamp-2">
+                          {v.doctorName}
+                        </p>
                         
-                        {(isAdmin || isManager) && selectedRep === 'Todos' && (
-                           <p className="text-[7px] font-bold text-indigo-500 mt-0.5 truncate">{v.userEmail}</p>
-                        )}
-                        
-                        <div className="flex justify-between items-center mt-1">
-                          <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase ${v.status === 'Realizada' ? 'bg-green-100 text-green-700' : v.status === 'Reagendada' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'}`}>{v.status}</span>
+                        <div className="flex justify-between items-center mt-2">
+                          <p className="text-[8px] font-bold text-blue-100 uppercase italic truncate max-w-[70%]">
+                            {v.doctorDetails?.city || '---'}
+                          </p>
+                          <span className="text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase bg-white/20 text-white border border-white/10">
+                            {v.status}
+                          </span>
                         </div>
+
+                        {/* Dueño de la cita (Solo visible para jefes en modo Todos) */}
+                        {(isAdmin || isManager) && selectedRep === 'Todos' && (
+                          <p className="text-[7px] font-black text-blue-200 mt-1 pt-1 border-t border-white/10 truncate">
+                            {v.userEmail.split('@')[0]}
+                          </p>
+                        )}
                       </button>
                     ))}
                   </div>
