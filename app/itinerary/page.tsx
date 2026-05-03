@@ -37,7 +37,6 @@ export default function ItineraryPage() {
   const isManager = user?.role === 'manager' || Object.keys(TEAM_MAPPING).includes(userEmail)
 
   useEffect(() => {
-    // Tanto Admin como Manager necesitan la base de médicos para construir el dropdown
     if (isAdmin || isManager) {
       fetch('/api/doctors').then(res => res.json()).then(data => {
         setDoctors(Array.isArray(data) ? data : [])
@@ -45,7 +44,6 @@ export default function ItineraryPage() {
     }
   }, [isAdmin, isManager])
 
-  // Lista para el Dropdown
   const repsList = useMemo(() => {
     if (isAdmin) {
       return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#')))).sort()
@@ -57,15 +55,18 @@ export default function ItineraryPage() {
   }, [doctors, isAdmin, isManager, userEmail])
 
   const fetchTrips = async () => {
+    // 🛡️ CORRECCIÓN: Definimos targetEmail inteligentemente
     const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
     
-    // Si es Admin/Manager y está en "Todos/Consolidado", en esta pantalla pedimos que seleccione a alguien
-    // Porque un itinerario mezclado de 10 personas en un solo calendario no es legible.
-    if (!targetEmail || selectedRep === 'Todos') {
+    // 🛡️ CORRECCIÓN: El bloqueo de "Todos" solo aplica si el usuario es JEFE.
+    // Un visitador normal no tiene el dropdown, por lo que debe pasar directo.
+    if ((isAdmin || isManager) && selectedRep === 'Todos') {
       setTrips([])
       setLoading(false)
       return
     }
+
+    if (!targetEmail) return;
 
     setLoading(true)
     try {
@@ -76,7 +77,7 @@ export default function ItineraryPage() {
       const querySnapshot = await getDocs(q)
       const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       
-      // FILTRO DINÁMICO: Solo muestra rutas del mes actual
+      // Filtramos para mostrar solo el mes actual en el calendario
       setTrips(data.filter((t: any) => t.startDate?.includes(filterKey) || t.endDate?.includes(filterKey)))
     } catch (e) { 
       console.error(e) 
@@ -89,7 +90,7 @@ export default function ItineraryPage() {
 
   const handleSave = async () => {
     if (!formData.city || !formData.startDate || !formData.endDate) return alert('Completa los campos')
-    if ((isAdmin || isManager) && selectedRep === 'Todos') return alert('Selecciona un visitador específico para asignar esta ruta')
+    if ((isAdmin || isManager) && selectedRep === 'Todos') return alert('Selecciona un visitador específico')
     
     setSaving(true)
     const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
@@ -113,18 +114,14 @@ export default function ItineraryPage() {
   }
 
   const handleDelete = async () => {
-    if (!editingId || !window.confirm('¿Estás seguro de eliminar esta ruta del itinerario?')) return;
+    if (!editingId || !window.confirm('¿Eliminar ruta?')) return;
     setSaving(true);
     try {
       await deleteDoc(doc(db, 'itineraries', editingId));
-      alert('¡Ruta eliminada correctamente!');
+      alert('¡Ruta eliminada!');
       resetForm();
       await fetchTrips();
-    } catch (e) { 
-      alert('Error al eliminar'); 
-    } finally { 
-      setSaving(false); 
-    }
+    } catch (e) { alert('Error al eliminar'); } finally { setSaving(false); }
   }
 
   const startEdit = (trip: any) => {
@@ -172,7 +169,7 @@ export default function ItineraryPage() {
             <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 shrink-0"><Filter size={20}/></div>
             <div className="pr-3 w-full">
               <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Auditando Ruta</p>
-              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none">
+              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none pr-4">
                 {isAdmin ? (
                   <option value="Todos">-- Seleccionar Visitador --</option>
                 ) : (
@@ -199,8 +196,8 @@ export default function ItineraryPage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* FASE 3.0: Ocultamos el form si el Manager/Admin está viendo el calendario de OTRA persona */}
-          {(isAdmin || userEmail === selectedRep || (!isAdmin && !isManager)) ? (
+          {/* Formulario: Visible para el visitador o para el Admin/Manager sobre su propia cuenta */}
+          {(!isAdmin && !isManager) || (selectedRep === userEmail) || isAdmin ? (
             <div className={`p-8 rounded-[40px] shadow-sm border transition-all h-fit ${editingId ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'}`}>
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-black uppercase text-gray-900 leading-none">
@@ -247,71 +244,45 @@ export default function ItineraryPage() {
                     onClick={handleSave} 
                     className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}
                   >
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Itinerario' : 'Guardar itinerario'}
+                    {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Itinerario' : 'Guardar Itinerario'}
                   </button>
-
                   {editingId && (
-                    <button 
-                      disabled={saving} 
-                      onClick={handleDelete} 
-                      className="w-full text-red-600 bg-red-50 hover:bg-red-100 border border-red-100 text-[10px] font-black uppercase tracking-widest py-4 rounded-2xl transition-all flex items-center justify-center gap-2"
-                    >
-                      <Trash2 size={16} /> Eliminar Ruta
-                    </button>
+                     <button onClick={handleDelete} className="text-red-500 font-bold text-[10px] uppercase py-2">Eliminar Viaje</button>
                   )}
                 </div>
               </div>
             </div>
           ) : (
-            // Panel Informativo para Managers Viendo a Otro (Modo Solo Lectura)
-            <div className="p-8 rounded-[40px] bg-indigo-50 border border-indigo-100 flex flex-col justify-center items-center text-center h-full">
-               <User size={40} className="text-indigo-300 mb-4" />
-               <h3 className="text-lg font-black uppercase text-indigo-900 leading-none mb-2">Modo Solo Lectura</h3>
-               <p className="text-xs text-indigo-600 font-medium">Estás visualizando el itinerario de <span className="font-bold">{selectedRep}</span>. No puedes modificar sus rutas.</p>
+            <div className="bg-white p-8 rounded-[40px] border border-gray-100 flex flex-col items-center justify-center text-center">
+               <User className="text-gray-200 mb-4" size={48} />
+               <p className="text-gray-400 font-bold text-xs uppercase">Estás auditando a:</p>
+               <p className="text-blue-600 font-black text-sm truncate w-full">{selectedRep}</p>
+               <p className="mt-4 text-[10px] text-gray-300 font-medium leading-relaxed italic">Como Gerente, solo puedes ver el calendario. Las modificaciones solo las puede hacer el visitador o el Administrador.</p>
             </div>
           )}
 
+          {/* Calendario de Itinerario */}
           <div className="lg:col-span-2">
-            {loading ? (
-              <div className="p-20 text-center font-black text-gray-300 animate-pulse">Sincronizando calendario...</div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-2.5">
-                {days.map(d => {
-                  const trip = getTripForDay(d);
-                  // Solo permite click si es Admin o si es el dueño del calendario
-                  const canEdit = isAdmin || userEmail === selectedRep || (!isAdmin && !isManager);
-                  
-                  return (
-                    <div 
-                      key={d} 
-                      onClick={() => {
-                        if (trip && canEdit) startEdit(trip)
-                      }}
-                      className={`${canEdit && trip ? 'cursor-pointer hover:border-blue-300' : ''} group p-3 lg:p-3 rounded-[28px] border transition-all min-h-[110px] lg:min-h-[130px] flex flex-col relative ${trip ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm bg-white'}`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <span className={`text-[11px] font-black ${trip ? 'text-blue-600' : 'text-gray-300'}`}>
-                          {d.toString().padStart(2, '0')} / {currentMonthStr}
-                        </span>
-                        {trip && canEdit && <Edit3 size={10} className="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />}
-                      </div>
-                      
-                      {trip && (
-                        <div className="flex-1 flex flex-col justify-center gap-1">
-                          <div className="bg-blue-600 text-white text-[10px] lg:text-[7px] font-black uppercase p-1.5 lg:p-1 rounded-lg shadow-sm text-center leading-tight truncate">
-                            {trip.city}
-                          </div>
-                          <div className="flex items-center gap-1 text-[8px] lg:text-[6.5px] text-blue-500 font-bold justify-center">
-                            <Clock size={8} className="lg:w-[7px] lg:h-[7px]" /> 
-                            {trip.startTime} - {trip.endTime}
-                          </div>
+            <div className="grid grid-cols-4 md:grid-cols-7 gap-2 lg:gap-3">
+              {days.map(d => {
+                const trip = getTripForDay(d)
+                return (
+                  <div key={d} className={`aspect-square md:aspect-auto md:min-h-[110px] p-3 rounded-[28px] border transition-all flex flex-col relative overflow-hidden ${trip ? 'bg-blue-600 border-blue-600 shadow-lg shadow-blue-100 scale-[1.02] z-10' : 'bg-white border-gray-50'}`}>
+                    <span className={`text-[10px] font-black mb-1 ${trip ? 'text-white' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')}</span>
+                    {trip && (
+                      <button onClick={() => ((isAdmin || userEmail === selectedRep || (!isAdmin && !isManager)) && startEdit(trip))} className="flex-1 flex flex-col text-left">
+                        <p className="text-[10px] font-black text-white uppercase leading-tight line-clamp-2">{trip.city}</p>
+                        <div className="mt-auto flex items-center gap-1 text-white/60">
+                          <Clock size={8} />
+                          <span className="text-[8px] font-bold">{trip.startTime}</span>
                         </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+                      </button>
+                    )}
+                    {trip && <div className="absolute -right-2 -bottom-2 opacity-10 text-white"><MapPin size={40} /></div>}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       )}
