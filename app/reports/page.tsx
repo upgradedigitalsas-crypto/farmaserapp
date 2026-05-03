@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
-import { useAuthStore } from '@/lib/store'
+import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
 import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, AlertCircle, Filter, Download, Briefcase, History } from 'lucide-react'
@@ -42,28 +42,48 @@ export default function ReportsPage() {
   const [samples, setSamples] = useState<any[]>([]) 
   
   const todayStr = new Date().toISOString().slice(0, 10)
-  const isAdmin = user?.email?.toLowerCase().trim() === 'entrenamientofarmaser@gmail.com'
+
+  // === FASE 3.0: Variables de Jerarquía y Blindaje Caché ===
+  const userEmail = user?.email?.toLowerCase().trim() || ''
+  const isAdmin = user?.role === 'admin' || userEmail === 'entrenamientofarmaser@gmail.com'
+  const isManager = user?.role === 'manager' || Object.keys(TEAM_MAPPING).includes(userEmail)
 
   useEffect(() => {
     fetch('/api/doctors').then(res => res.json()).then(data => setDoctors(Array.isArray(data) ? data : []))
     fetch('/api/products').then(res => res.json()).then(data => setProducts(Array.isArray(data) ? data : []))
   }, [])
 
+  // Lista para el Dropdown (Solo Admin y Manager)
   const repsList = useMemo(() => {
-    return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#'))))
-  }, [doctors])
+    if (isAdmin) {
+      return Array.from(new Set(doctors.map((d: any) => String(d.assignedTo || '').toLowerCase().trim()).filter(e => e !== '' && !e.includes('#')))).sort()
+    } else if (isManager) {
+      const myTeam = TEAM_MAPPING[userEmail] || []
+      return myTeam.filter(email => email !== userEmail).sort()
+    }
+    return []
+  }, [doctors, isAdmin, isManager, userEmail])
 
+  // ==========================================
+  // CARGA DE DATOS PARA MODO: "AUDITORÍA" 
+  // ==========================================
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin && !isManager) return; 
+    if (isManager && selectedRep === userEmail) return;
+
     const fetchAudit = async () => {
       setLoadingAudit(true)
       try {
         const q = query(collection(db, 'visit_reports'), orderBy('reportedAt', 'desc'));
         const snap = await getDocs(q);
-        const allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        let allData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         
-        if (selectedRep === 'Todos') {
+        if (isAdmin && selectedRep === 'Todos') {
           setAuditReports(allData);
+        } else if (isManager && selectedRep === 'Todos') {
+          const myTeam = TEAM_MAPPING[userEmail] || [];
+          const filtered = allData.filter((r: any) => myTeam.includes(String(r.userEmail || '').toLowerCase().trim()));
+          setAuditReports(filtered);
         } else {
           const filtered = allData.filter((r: any) => 
             String(r.userEmail || '').toLowerCase().trim() === selectedRep.toLowerCase().trim()
@@ -73,22 +93,27 @@ export default function ReportsPage() {
       } catch (e) { console.error("Error auditoría:", e) } finally { setLoadingAudit(false) }
     }
     fetchAudit()
-  }, [isAdmin, selectedRep])
+  }, [isAdmin, isManager, selectedRep, userEmail])
 
+  // ==========================================
+  // CARGA DE DATOS PARA MODO: "GESTIÓN PROPIA"
+  // ==========================================
   useEffect(() => {
     if (isAdmin) return;
+    if (isManager && selectedRep !== userEmail) return;
+
     const fetchRepData = async () => {
       setLoading(true)
       try {
         const qPlanned = query(collection(db, 'planned_visits'), 
-          where('userEmail', '==', user?.email?.toLowerCase()), 
+          where('userEmail', '==', userEmail), 
           where('visitDate', '==', todayStr)
         )
         const snapPlanned = await getDocs(qPlanned)
         setVisits(snapPlanned.docs.map(d => ({ id: d.id, ...d.data() } as any)).filter((v: any) => v.status === 'Planeada'))
 
         const qReports = query(collection(db, 'visit_reports'),
-          where('userEmail', '==', user?.email?.toLowerCase())
+          where('userEmail', '==', userEmail)
         )
         const snapReports = await getDocs(qReports)
         let history = snapReports.docs.map(d => ({ id: d.id, ...d.data() } as any))
@@ -109,14 +134,14 @@ export default function ReportsPage() {
       } finally { setLoading(false) }
     }
     fetchRepData()
-  }, [user, isAdmin, todayStr])
+  }, [isAdmin, isManager, selectedRep, userEmail, todayStr])
 
   const handleSaveReport = async () => {
     if (!selectedVisit) return
     setSaving(true)
     try {
       const locationFingerprint = await getFingerprintLocation()
-      const targetEmail = user?.email?.toLowerCase()
+      const targetEmail = userEmail
       await updateDoc(doc(db, 'planned_visits', selectedVisit.id), { status: 'Realizada', reportedAt: Timestamp.now() })
       
       const reportData: any = {
@@ -138,7 +163,7 @@ export default function ReportsPage() {
     let csv = "Fecha,Visitador,Medico,Estado,Muestras,Observaciones\n";
     auditReports.forEach(r => {
       const s = r.samples?.map((x:any) => `${x.qty}x ${x.name}`).join(' | ') || 'N/A';
-      csv += `${r.reportedAt?.toDate ? r.reportedAt.toDate().toLocaleDateString() : new Date(r.reportedAt).toLocaleDateString()},${r.userEmail},${r.doctorName},${r.status},"${s}","${r.observations || ''}"\n`;
+      csv += `${r.reportedAt?.toDate ? r.reportedAt.toDate().toLocaleDateString() : new Date(r.reportedAt).toLocaleDateString()},${r.userEmail},"${r.doctorName}",${r.status},"${s}","${r.observations || ''}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -148,25 +173,35 @@ export default function ReportsPage() {
     link.click();
   }
 
+  // Lógica Híbrida: ¿Muestra Auditoría o Muestra Gestión Propia?
+  const isViewingAudit = isAdmin || (isManager && selectedRep !== userEmail)
+
   return (
     <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1400px] min-h-screen bg-[#F8FAFC]">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
         <div>
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">
-            {isAdmin ? 'Auditoría Mensual' : 'Reportar Cita'}
+            {isViewingAudit ? 'Auditoría Mensual' : 'Reportar Cita'}
           </h1>
           <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2 italic">
-            {isAdmin ? `VISTA DE CONTROL: ${selectedRep}` : `GESTIÓN DEL DÍA: ${todayStr}`}
+            {isViewingAudit ? `VISTA DE CONTROL: ${selectedRep}` : `GESTIÓN DEL DÍA: ${todayStr}`}
           </p>
         </div>
 
-        {isAdmin && (
-          <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
-            <Filter size={20} className="text-indigo-600 ml-2"/>
-            <div className="pr-3">
-              <p className="text-[9px] font-black text-gray-300 uppercase leading-none mb-1">Filtrar Visitador</p>
-              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold text-gray-900 bg-transparent border-none outline-none pr-4">
-                <option value="Todos">Toda la Empresa</option>
+        {(isAdmin || isManager) && (
+          <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 w-full sm:w-auto">
+            <Filter size={20} className="text-indigo-600 ml-2 shrink-0"/>
+            <div className="pr-3 w-full">
+              <p className="text-[9px] font-black text-gray-300 uppercase leading-none mb-1">Filtrar Vista</p>
+              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-bold text-gray-900 bg-transparent border-none outline-none pr-4 cursor-pointer">
+                {isAdmin ? (
+                  <option value="Todos">Toda la Empresa</option>
+                ) : (
+                  <>
+                    <option value="Todos">Consolidado Equipo</option>
+                    <option value={userEmail}>Mi Gestión Propia</option>
+                  </>
+                )}
                 {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
               </select>
             </div>
@@ -174,14 +209,14 @@ export default function ReportsPage() {
         )}
       </header>
 
-      {isAdmin ? (
+      {isViewingAudit ? (
         <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-white">
+          <div className="p-8 border-b border-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white">
              <div className="flex items-center gap-3">
                <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
                <h2 className="font-black uppercase text-gray-900 text-sm tracking-tighter italic">Historial Consolidado</h2>
              </div>
-             <button onClick={exportCSV} className="bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-6 py-3 rounded-xl flex items-center gap-2 transition-all shadow-lg shadow-green-100">
+             <button onClick={exportCSV} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-100">
                 <Download size={16}/> Descargar Excel
              </button>
           </div>
@@ -224,9 +259,9 @@ export default function ReportsPage() {
         <div className="max-w-[1200px]">
            {!selectedVisit ? (
              <div className="space-y-4">
-               <div className="flex gap-3 mb-8">
-                 <button onClick={() => setActiveTab('pendientes')} className={`flex-1 md:flex-none px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${activeTab === 'pendientes' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-gray-400 border border-gray-100'}`}><Package size={14}/> Pendientes Hoy</button>
-                 <button onClick={() => setActiveTab('historial')} className={`flex-1 md:flex-none px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${activeTab === 'historial' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-gray-400 border border-gray-100'}`}><History size={14}/> Historial (30 Días)</button>
+               <div className="flex flex-col sm:flex-row gap-3 mb-8">
+                 <button onClick={() => setActiveTab('pendientes')} className={`flex-1 px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${activeTab === 'pendientes' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-gray-400 border border-gray-100'}`}><Package size={14}/> Pendientes Hoy</button>
+                 <button onClick={() => setActiveTab('historial')} className={`flex-1 px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${activeTab === 'historial' ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white text-gray-400 border border-gray-100'}`}><History size={14}/> Historial (30 Días)</button>
                </div>
 
                {loading ? <div className="p-20 text-center font-black text-gray-300 animate-pulse uppercase tracking-widest">Sincronizando...</div> :
@@ -241,19 +276,19 @@ export default function ReportsPage() {
                       visits.map(v => (
                         <button key={v.id} onClick={() => setSelectedVisit(v)} className="w-full bg-white p-6 rounded-[35px] border border-gray-100 flex items-center justify-between hover:border-blue-600 transition-all shadow-sm group">
                           <div className="flex items-center gap-4 text-left">
-                             <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all"><User size={24}/></div>
-                             <div>
-                               <p className="font-black text-gray-900 uppercase leading-none mb-1 text-sm">{v.doctorName}</p>
-                               <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase">
-                                 <span className="text-blue-600">{v.startTime}</span>
+                             <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all flex-shrink-0"><User size={24}/></div>
+                             <div className="min-w-0">
+                               <p className="font-black text-gray-900 uppercase leading-none mb-1 text-sm truncate">{v.doctorName}</p>
+                               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-gray-400 uppercase">
+                                 <span className="text-blue-600 shrink-0">{v.startTime}</span>
                                  <span>•</span>
-                                 <span>{v.doctorDetails?.specialty}</span>
+                                 <span className="truncate">{v.doctorDetails?.specialty}</span>
                                  <span>•</span>
-                                 <span>{v.doctorDetails?.city}</span>
+                                 <span className="truncate">{v.doctorDetails?.city}</span>
                                </div>
                              </div>
                           </div>
-                          <div className="bg-blue-600 px-6 py-2 rounded-xl text-[10px] font-black text-white uppercase shadow-md hidden sm:block">REPORTAR</div>
+                          <div className="bg-blue-600 px-6 py-2 rounded-xl text-[10px] font-black text-white uppercase shadow-md hidden sm:block shrink-0 ml-4">REPORTAR</div>
                         </button>
                       ))
                     )}
@@ -289,7 +324,7 @@ export default function ReportsPage() {
                                 <p className="text-[10px] text-gray-300 italic">Sin observaciones.</p>
                               )}
                             </div>
-                            <div className="md:col-span-2 text-right border-t md:border-none pt-3 md:pt-0">
+                            <div className="md:col-span-2 text-left md:text-right border-t md:border-none pt-3 md:pt-0">
                               <p className="text-[9px] font-bold text-gray-500 italic leading-tight">{r.samples?.length > 0 ? r.samples.map((s:any) => `${s.qty}x ${s.name}`).join(', ') : 'Sin muestras'}</p>
                             </div>
                           </div>
@@ -304,7 +339,7 @@ export default function ReportsPage() {
                 <button onClick={() => { setSelectedVisit(null); setObs(''); setSamples([]); }} className="mb-8 text-gray-400 font-black uppercase text-[10px] flex items-center gap-2 hover:text-red-500 transition-colors"><X size={14}/> Cancelar y Volver</button>
                 <div className="mb-10 pb-6 border-b border-gray-50">
                    <h2 className="text-3xl font-black uppercase text-gray-900 tracking-tighter mb-2">{selectedVisit.doctorName}</h2>
-                   <p className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 italic"><MapPin size={14} className="text-blue-500"/> {selectedVisit.doctorDetails?.address} — {selectedVisit.doctorDetails?.city}</p>
+                   <p className="text-xs font-bold text-gray-400 uppercase flex flex-wrap items-center gap-2 italic"><MapPin size={14} className="text-blue-500 shrink-0"/> {selectedVisit.doctorDetails?.address} — {selectedVisit.doctorDetails?.city}</p>
                 </div>
                 <div className="space-y-12">
                   <div>
@@ -328,8 +363,8 @@ export default function ReportsPage() {
                     </div>
                     <div className="space-y-3">
                       {samples.map(s => (
-                        <div key={s.productId} className="flex items-center justify-between bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-sm animate-in slide-in-from-right duration-300">
-                          <span className="text-[11px] font-black uppercase text-blue-700">{s.name}</span>
+                        <div key={s.productId} className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-blue-50 p-5 rounded-2xl border border-blue-100 shadow-sm animate-in slide-in-from-right duration-300">
+                          <span className="text-[11px] font-black uppercase text-blue-700 text-center sm:text-left">{s.name}</span>
                           <div className="flex items-center gap-5">
                             <button onClick={() => setSamples(samples.map(x => x.productId === s.productId ? {...x, qty: Math.max(0, x.qty-1)} : x).filter(x => x.qty > 0))} className="w-9 h-9 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm border border-blue-100 active:scale-90 transition-transform"><Minus size={16}/></button>
                             <span className="font-black text-blue-800 text-lg">{s.qty}</span>
@@ -346,8 +381,9 @@ export default function ReportsPage() {
                       <textarea value={obs} onChange={e => setObs(e.target.value)} rows={4} className="w-full bg-gray-50 rounded-[30px] p-6 pl-14 text-sm font-bold border-none focus:ring-2 focus:ring-blue-600 shadow-inner" placeholder="Escribe aquí los detalles del encuentro..."/>
                     </div>
                   </div>
-                  <button disabled={saving} onClick={handleSaveReport} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 rounded-[30px] font-black uppercase tracking-widest shadow-2xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-3">
-                    {saving ? <Loader2 className="animate-spin" /> : <><CheckCircle size={20}/> Guardar Reporte Final</>}
+                  
+                  <button disabled={saving} onClick={handleSaveReport} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black uppercase tracking-[0.2em] py-6 rounded-[30px] shadow-2xl shadow-blue-200 transition-all active:scale-95 flex items-center justify-center gap-3">
+                    {saving ? <Loader2 className="animate-spin" size={20} /> : <><CheckCircle size={20}/> Guardar Reporte Final</>}
                   </button>
                 </div>
              </div>
