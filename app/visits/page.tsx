@@ -29,9 +29,15 @@ const getFingerprintLocation = () => {
   });
 };
 
+// === FUNCIÓN DE NORMALIZACIÓN FLEXIBLE ===
 const normalizeStr = (str: string) => {
   if (!str) return '';
-  return str.toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return str
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 };
 
 export default function PlanningPage() {
@@ -47,7 +53,6 @@ export default function PlanningPage() {
   const [filterSpecialty, setFilterSpecialty] = useState('')
   const [filterCategory, setFilterCategory] = useState('')
 
-  // Fecha inicial dinámica: hoy mismo en lugar de una fecha fija
   const [visitDate, setVisitDate] = useState(now.toISOString().split('T')[0])
   const [startTime, setStartTime] = useState('')
   const [endTime, setEndTime] = useState('')
@@ -67,8 +72,6 @@ export default function PlanningPage() {
       const q = (isAdmin && selectedRep === 'Todos') ? query(vRef) : query(vRef, where('userEmail', '==', emailTarget))
       const snap = await getDocs(q)
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      
-      // FILTRO AUTOMÁTICO: Solo muestra visitas del mes y año actual
       setPlannedVisits(all.filter((v: any) => v.visitDate?.includes(filterKey)))
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
@@ -86,7 +89,6 @@ export default function PlanningPage() {
     try {
       const locationFingerprint = await getFingerprintLocation()
       const targetEmail = isAdmin ? selectedRep : user?.email?.toLowerCase().trim()
-      
       const visitData: any = {
         userEmail: targetEmail,
         doctorName: selectedDoctor.name,
@@ -104,16 +106,9 @@ export default function PlanningPage() {
         status,
         updatedAt: Timestamp.now()
       }
-
-      if (locationFingerprint) {
-        visitData.locationFingerprint = locationFingerprint;
-      }
-
-      if (editingId) {
-        await updateDoc(doc(db, 'planned_visits', editingId), visitData)
-      } else {
-        await addDoc(collection(db, 'planned_visits'), { ...visitData, createdAt: Timestamp.now() })
-      }
+      if (locationFingerprint) visitData.locationFingerprint = locationFingerprint;
+      if (editingId) await updateDoc(doc(db, 'planned_visits', editingId), visitData)
+      else await addDoc(collection(db, 'planned_visits'), { ...visitData, createdAt: Timestamp.now() })
       clearFilters(); resetForm(); fetchData(); alert('Guardado con éxito')
     } catch (e) { alert('Error al guardar') } finally { setSaving(false) }
   }
@@ -129,21 +124,14 @@ export default function PlanningPage() {
 
   const startEdit = (v: any) => {
     setEditingId(v.id)
-    
     const freshDoctor = doctors.find(d => {
       const isGenericId = !d.id || d.id.includes('SIN CODIGO');
-      if (!isGenericId) {
-        return d.id === v.doctorId;
-      }
+      if (!isGenericId) return d.id === v.doctorId;
       return normalizeStr(d.name) === normalizeStr(v.doctorName) && 
              normalizeStr(d.city) === normalizeStr(v.doctorDetails?.city);
     });
-
-    if (freshDoctor) {
-      setSelectedDoctor({ ...freshDoctor, name: v.doctorName }) 
-    } else {
-      setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails }) 
-    }
+    if (freshDoctor) setSelectedDoctor({ ...freshDoctor, name: v.doctorName });
+    else setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails });
     setVisitDate(v.visitDate); setStartTime(v.startTime || ''); setEndTime(v.endTime || ''); setStatus(v.status)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -175,14 +163,15 @@ export default function PlanningPage() {
   const myFullDocsList = useMemo(() => {
     const email = isAdmin ? (selectedRep === 'Todos' ? '' : selectedRep) : user?.email?.toLowerCase().trim()
     if (!email && isAdmin) return []
-    const planned = new Set(plannedVisits.map(v => String(v.doctorName || '').toLowerCase().trim()))
-    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email && !planned.has(String(d.name || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name))
-  }, [doctors, user, selectedRep, isAdmin, plannedVisits])
+    // Eliminada la restricción de ocultar médicos planeados para que el buscador siempre funcione
+    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === email).sort((a: any, b: any) => a.name.localeCompare(b.name))
+  }, [doctors, user, selectedRep, isAdmin])
 
   const citiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.city).filter(Boolean))).sort(), [myFullDocsList])
   const specialtiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.specialty).filter(Boolean))).sort(), [myFullDocsList])
   const categoriesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.category).filter(Boolean))).sort(), [myFullDocsList])
 
+  // === MOTOR DE BÚSQUEDA FLEXIBLE ===
   const myDocsFiltered = useMemo(() => {
     if (selectedDoctor) return [];
     if (!searchTerm.trim() && !filterCity && !filterSpecialty && !filterCategory) return [];
@@ -266,6 +255,23 @@ export default function PlanningPage() {
                     </select>
                   </div>
                 </div>
+
+                {myDocsFiltered.length > 0 && !selectedDoctor && (
+                  <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                    {myDocsFiltered.map((docItem:any) => (
+                      <button key={docItem.id} onClick={() => { setSelectedDoctor(docItem); clearFilters() }} className="w-full text-left p-4 bg-white border shadow-sm hover:border-blue-500 rounded-2xl font-bold uppercase text-xs transition-all group">
+                        <div className="flex justify-between items-center">
+                          <span className="group-hover:text-blue-600 transition-colors">{docItem.name}</span>
+                          {docItem.category && <span className="bg-purple-100 text-purple-700 text-[9px] px-2 py-0.5 rounded-md">CAT: {docItem.category}</span>}
+                        </div>
+                        <div className="text-[10px] font-bold text-gray-400 mt-1.5 flex gap-3">
+                          <span className="flex items-center gap-1"><MapPin size={10}/> {docItem.city}</span>
+                          <span className="flex items-center gap-1"><Star size={10}/> {docItem.specialty}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
