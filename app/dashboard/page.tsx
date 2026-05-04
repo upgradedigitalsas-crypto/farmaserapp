@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { 
   CalendarDays, Users, BarChart3, AlertCircle, Zap, Filter, 
-  CheckCircle, Star, X, Activity, Briefcase
+  CheckCircle, Star, X, Activity, Briefcase, Clock
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -18,6 +18,11 @@ export default function DashboardPage() {
   
   const [lastMonthStats, setLastMonthStats] = useState<any>(null)
   const [showBanner, setShowBanner] = useState(true)
+
+  // Lógica de Fechas para el mensaje
+  const now = new Date()
+  const currentMonthName = now.toLocaleString('es-ES', { month: 'long' })
+  const currentDay = now.getDate()
 
   const userEmail = user?.email?.toLowerCase().trim() || ''
   const isAdmin = user?.role === 'admin' || userEmail === 'entrenamientofarmaser@gmail.com'
@@ -44,7 +49,6 @@ export default function DashboardPage() {
         const allDoctors = Array.isArray(docData) ? docData : []
         setDoctors(allDoctors)
 
-        const now = new Date()
         const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
         
         const startOfMonthStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
@@ -187,9 +191,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* --- BANNER DE CONTROL MULTI-ROL --- */}
-      
-      {/* 1. BANNER PARA SUPER ADMIN */}
+      {/* --- BANNER GLOBAL MEJORADO (TIEMPO REAL) --- */}
       {isAdmin && selectedRep === 'Todos' ? (
         <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 rounded-[40px] p-8 md:p-12 shadow-2xl mb-10 border border-white/10 group">
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -201,13 +203,16 @@ export default function DashboardPage() {
                 <h2 className="text-white text-3xl md:text-4xl font-black uppercase tracking-tighter italic leading-none">
                   Estado Global <span className="text-indigo-400">Farmaser</span>
                 </h2>
-                <p className="text-indigo-100/80 font-medium text-sm md:text-lg mt-2 max-w-xl">
-                  Se coordinan <span className="font-black text-white">{visits.length}</span> citas totales este mes, con efectividad global del <span className="font-black text-indigo-300">{efectividad}%</span>.
+                <p className="text-indigo-100/80 font-medium text-sm md:text-lg mt-3 max-w-2xl leading-relaxed">
+                  Al día de hoy, <span className="text-white font-black underline decoration-indigo-500 underline-offset-4">{currentDay} de {currentMonthName}</span>, el laboratorio registra un acumulado de <span className="font-black text-white">{visits.length} citas planeadas</span>. La efectividad de reporte en tiempo real se sitúa en el <span className="font-black text-indigo-300">{efectividad}%</span>.
                 </p>
               </div>
             </div>
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-[30px] flex flex-col items-center justify-center min-w-[200px]">
-              <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1">Pendientes Globales</p>
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-[30px] flex flex-col items-center justify-center min-w-[220px]">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock size={14} className="text-indigo-400" />
+                <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em]">Citas sin Reporte ({currentMonthName})</p>
+              </div>
               <span className="text-4xl font-black text-white">{noReportadas}</span>
               <p className="text-[9px] font-bold text-red-400 uppercase mt-2 animate-bounce">Revisión Requerida</p>
             </div>
@@ -216,8 +221,8 @@ export default function DashboardPage() {
         </div>
       ) 
       
-      /* 2. BANNER PARA GERENTE (CONSOLIDADO EQUIPO) */
       : isManager && selectedRep === 'Todos' ? (
+        /* BANNER GERENTE (EQUIPO) */
         <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-950 rounded-[40px] p-8 md:p-12 shadow-2xl mb-10 border border-white/10 group">
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="flex items-center gap-6">
@@ -228,23 +233,22 @@ export default function DashboardPage() {
                 <h2 className="text-white text-3xl md:text-4xl font-black uppercase tracking-tighter italic leading-none">
                   Gestión de <span className="text-purple-400">Equipo</span>
                 </h2>
-                <p className="text-purple-100/80 font-medium text-sm md:text-lg mt-2 max-w-xl">
-                  Tu equipo ha planeado <span className="font-black text-white">{visits.length} visitas</span>. La efectividad grupal actual es del <span className="font-black text-purple-300">{efectividad}%</span>.
+                <p className="text-purple-100/80 font-medium text-sm md:text-lg mt-3 max-w-2xl leading-relaxed">
+                  En el transcurso de <span className="text-white font-black uppercase">{currentMonthName}</span>, tu equipo ha agendado <span className="font-black text-white">{visits.length} visitas</span>. El cumplimiento operativo grupal alcanza el <span className="font-black text-purple-300">{efectividad}%</span> hasta la fecha.
                 </p>
               </div>
             </div>
             <div className="bg-purple-500/10 backdrop-blur-md border border-purple-400/20 p-6 rounded-[30px] flex flex-col items-center justify-center min-w-[200px]">
-              <p className="text-[10px] font-black text-purple-300 uppercase tracking-[0.2em] mb-1">Sin Reportar en Equipo</p>
+              <p className="text-[10px] font-black text-purple-300 uppercase tracking-[0.2em] mb-1">Pendientes Equipo ({currentMonthName})</p>
               <span className="text-4xl font-black text-white">{noReportadas}</span>
               <p className="text-[9px] font-bold text-orange-400 uppercase mt-2">Seguimiento Sugerido</p>
             </div>
           </div>
-          <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/10 rounded-full blur-[100px] -mr-20 -mt-20" />
         </div>
       )
 
-      /* 3. BANNER INDIVIDUAL (PARA VISITADORES O CUANDO SE FILTRA A ALGUIEN) */
       : lastMonthStats && showBanner ? (
+        /* BANNER VISITADOR / FILTRADO (LOGROS MES ANTERIOR) */
         <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 rounded-[35px] p-6 mb-10 shadow-xl shadow-blue-100 border border-blue-400/20">
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
             <div className="bg-white/10 p-4 rounded-[24px] backdrop-blur-md border border-white/20">
@@ -255,13 +259,13 @@ export default function DashboardPage() {
                 {selectedRep !== userEmail && selectedRep !== 'Todos' ? `Desempeño de ${selectedRep.split('@')[0]} en` : 'Tu desempeño en'} <span className="text-yellow-300">{lastMonthStats.name}</span>
               </h3>
               <p className="text-blue-50 text-sm mt-2 font-medium leading-relaxed max-w-2xl">
-                Logró <span className="font-black text-white">{lastMonthStats.planeadas} citas planeadas</span> con una efectividad de reporte del <span className="font-black text-white">{lastMonthStats.efectividad}%</span> y una cobertura del <span className="font-black text-white">{lastMonthStats.cobertura}%</span>.
+                Durante el cierre de <span className="font-black text-white uppercase">{lastMonthStats.name}</span>, se consolidaron {lastMonthStats.planeadas} citas con una efectividad de reporte del {lastMonthStats.efectividad}% y una cobertura del {lastMonthStats.cobertura}%.
               </p>
               {lastMonthStats.pendientes > 0 && (
                 <div className="inline-flex items-center gap-2 mt-4 bg-red-500/20 px-3 py-1.5 rounded-xl border border-red-400/30">
                   <AlertCircle size={14} className="text-red-200" />
                   <p className="text-[10px] font-black text-red-100 uppercase tracking-widest">
-                    Ojo: {lastMonthStats.pendientes} visitas quedaron pendientes de reporte.
+                    Nota: {lastMonthStats.pendientes} visitas de {lastMonthStats.name} sin reporte final.
                   </p>
                 </div>
               )}
@@ -273,7 +277,7 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {/* --- TARJETAS DE INDICADORES (IGUALES QUE ANTES) --- */}
+      {/* --- TARJETAS DE INDICADORES (CONSOLIDADAS) --- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-blue-200 transition-colors">
           <div className="flex items-start justify-between w-full">
@@ -284,7 +288,7 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CalendarDays size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-blue-500">Total:</span> Agendadas este mes</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-blue-500">Estado:</span> Acumulado {currentMonthName}</p>
           </div>
         </div>
         
@@ -297,7 +301,7 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CheckCircle size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-indigo-500">Total:</span> Ejecutadas y validadas</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-indigo-500">Total:</span> Validadas en plataforma</p>
           </div>
         </div>
         
@@ -310,7 +314,7 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><Users size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-green-500">Fórmula:</span> (Visitados ÷ Base) × 100</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-green-500">Métrica:</span> Penetracion de Cartera</p>
           </div>
         </div>
         
@@ -323,7 +327,7 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><BarChart3 size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-purple-500">Fórmula:</span> (Reportadas ÷ Planeadas) × 100</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-purple-500">Indicador:</span> Gestión vs Programación</p>
           </div>
         </div>
         
@@ -336,14 +340,17 @@ export default function DashboardPage() {
             <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><AlertCircle size={24}/></div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-orange-500">Alerta:</span> Planeadas sin reporte</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-orange-500">Alerta:</span> Gestiones sin documentar</p>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-          <h2 className="text-lg font-black uppercase text-gray-900 mb-6 tracking-tighter">Agenda del Día</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-black uppercase text-gray-900 tracking-tighter">Agenda del Día</h2>
+            <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">{currentDay} {currentMonthName}</div>
+          </div>
           {visitasHoy.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-gray-400 font-medium italic text-sm">No hay visitas planeadas para hoy.</p>
@@ -367,7 +374,7 @@ export default function DashboardPage() {
         </div>
         
         <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-          <h2 className="text-lg font-black uppercase text-gray-900 mb-8 tracking-tighter w-full text-left">Cartera</h2>
+          <h2 className="text-lg font-black uppercase text-gray-900 mb-8 tracking-tighter w-full text-left">Cartera Global</h2>
           <div className="bg-blue-50 w-full py-12 rounded-[30px] border border-blue-100 hover:scale-105 transition-transform">
             <p className="text-6xl font-black text-blue-600 tracking-tighter mb-2">{baseSize}</p>
             <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
