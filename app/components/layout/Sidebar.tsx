@@ -2,8 +2,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
-// 1. Agregamos Sparkles a la lista de iconos
-import { LayoutDashboard, Users, Map, LogOut, Menu, X, Zap, ClipboardCheck, Sparkles } from 'lucide-react'
+// Importamos TODOS los iconos originales + Sparkles para Novedades
+import { 
+  Sparkles, LayoutDashboard, Building2, ClipboardList, 
+  CalendarDays, BarChart3, BookOpen, Lock, UserCircle, 
+  LogOut, Menu, X 
+} from 'lucide-react'
 import { useState } from 'react'
 
 export default function Sidebar() {
@@ -11,14 +15,18 @@ export default function Sidebar() {
   const { logout } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
 
-  // 2. Agregamos 'Novedades' en primer lugar
+  // AQUÍ ESTÁ TU MENÚ COMPLETO RESTAURADO
   const menuItems = [
     { name: 'Novedades', icon: Sparkles, path: '/news' },
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-    { name: 'Base Asignada', icon: Users, path: '/medical-centers' },
-    { name: 'Planeación', icon: Zap, path: '/visits' },
-    { name: 'Reportar Cita', icon: ClipboardCheck, path: '/reports' },
-    { name: 'Itinerario', icon: Map, path: '/itinerary' },
+    { name: 'Centros Médicos', icon: Building2, path: '/medical-centers' },
+    { name: 'Visitas', icon: ClipboardList, path: '/visits' },
+    { name: 'Itinerario', icon: CalendarDays, path: '/itinerary' },
+    { name: 'Reportes', icon: BarChart3, path: '/reports' },
+    { name: 'Labores Visitador', icon: BookOpen, path: '/labores' },
+    { name: 'E-Learning', icon: Lock, path: '/elearning' },
+    { name: 'Evaluación', icon: Lock, path: '/evaluacion' },
+    { name: 'Mi Perfil', icon: UserCircle, path: '/perfil' },
   ]
 
   return (
@@ -40,16 +48,16 @@ export default function Sidebar() {
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] mt-2 italic">Gestión Pro</p>
           </div>
 
-          <nav className="flex-1 space-y-2">
+          <nav className="flex-1 space-y-2 overflow-y-auto custom-scrollbar pr-2">
             {menuItems.map((item) => (
               <Link key={item.path} href={item.path} onClick={() => setIsOpen(false)}
-                className={`flex items-center gap-4 px-4 py-4 rounded-2xl font-bold text-sm transition-all ${pathname === item.path ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
+                className={`flex items-center gap-4 px-4 py-3 rounded-2xl font-bold text-sm transition-all ${pathname === item.path ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
                 <item.icon size={20} /> {item.name}
               </Link>
             ))}
           </nav>
 
-          <div className="pt-6 border-t border-gray-800">
+          <div className="pt-6 border-t border-gray-800 shrink-0">
             <button onClick={() => logout()} className="flex items-center gap-4 px-4 py-4 w-full text-red-400 font-bold text-sm hover:bg-red-500/10 rounded-2xl transition-all">
               <LogOut size={20} /> SALIR
             </button>
