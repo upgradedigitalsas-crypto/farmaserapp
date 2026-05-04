@@ -29,3 +29,17 @@ main > div {
   padding-left: 1.5rem !important;
   padding-right: 1.5rem !important;
 }
+/* =========================================
+   OCULTAR BARRA DE SCROLL (DISEÑO MODERNO)
+   ========================================= */
+
+/* Para Chrome, Safari y Opera */
+.custom-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Para Firefox, IE y Edge */
+.custom-scrollbar {
+  -ms-overflow-style: none;  /* IE y Edge */
+  scrollbar-width: none;  /* Firefox */
+}
