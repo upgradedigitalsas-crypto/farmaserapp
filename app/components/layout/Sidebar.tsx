@@ -2,7 +2,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
-import { LayoutDashboard, Users, Map, LogOut, Menu, X, Zap, ClipboardCheck } from 'lucide-react'
+// 1. Agregamos Sparkles a la lista de iconos
+import { LayoutDashboard, Users, Map, LogOut, Menu, X, Zap, ClipboardCheck, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 
 export default function Sidebar() {
@@ -10,7 +11,9 @@ export default function Sidebar() {
   const { logout } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
 
+  // 2. Agregamos 'Novedades' en primer lugar
   const menuItems = [
+    { name: 'Novedades', icon: Sparkles, path: '/news' },
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
     { name: 'Base Asignada', icon: Users, path: '/medical-centers' },
     { name: 'Planeación', icon: Zap, path: '/visits' },
