@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation' // <-- Agregado useRouter
 import { useAuthStore } from '@/lib/store'
 // Importamos TODOS los iconos originales + Sparkles para Novedades
 import { 
@@ -12,6 +12,7 @@ import { useState } from 'react'
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter() // <-- Inicializado el enrutador
   const { logout } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
 
@@ -28,6 +29,12 @@ export default function Sidebar() {
     { name: 'Evaluación', icon: Lock, path: '/evaluacion' },
     { name: 'Mi Perfil', icon: UserCircle, path: '/perfil' },
   ]
+
+  // <-- Función que cierra sesión y redirige al login
+  const handleLogout = async () => {
+    await logout()
+    router.push('/login')
+  }
 
   return (
     <>
@@ -58,7 +65,8 @@ export default function Sidebar() {
           </nav>
 
           <div className="pt-6 border-t border-gray-800 shrink-0">
-            <button onClick={() => logout()} className="flex items-center gap-4 px-4 py-4 w-full text-red-400 font-bold text-sm hover:bg-red-500/10 rounded-2xl transition-all">
+            {/* <-- Botón actualizado con handleLogout */}
+            <button onClick={handleLogout} className="flex items-center gap-4 px-4 py-4 w-full text-red-400 font-bold text-sm hover:bg-red-500/10 rounded-2xl transition-all cursor-pointer">
               <LogOut size={20} /> SALIR
             </button>
           </div>
