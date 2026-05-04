@@ -2,9 +2,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen, Lock, UserCircle } from 'lucide-react';
+// Agregué 'Sparkles' a la lista de iconos importados
+import { Sparkles, LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen, Lock, UserCircle } from 'lucide-react';
 
 const menuItems = [
+  // Aquí está tu botón nuevo apuntando a la ruta correcta
+  { name: 'Novedades', href: '/news', icon: Sparkles },
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Centros Médicos', href: '/medical-centers', icon: Building2 },
   { name: 'Visitas', href: '/visits', icon: ClipboardList },
@@ -19,6 +22,7 @@ const menuItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { logout } = useAuth();
+  
   return (
     <div className="flex h-full flex-col bg-slate-900 text-white">
       <div className="flex h-20 items-center justify-center border-b border-slate-800 px-4">
