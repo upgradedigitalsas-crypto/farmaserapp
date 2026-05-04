@@ -3,7 +3,10 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs } from 'firebase/firestore'
-import { CalendarDays, Users, BarChart3, AlertCircle, Zap, Filter, CheckCircle, Star, X } from 'lucide-react'
+import { 
+  CalendarDays, Users, BarChart3, AlertCircle, Zap, Filter, 
+  CheckCircle, Star, X, Activity, Briefcase
+} from 'lucide-react'
 
 export default function DashboardPage() {
   const { user, selectedRep, setSelectedRep } = useAuthStore()
@@ -13,11 +16,9 @@ export default function DashboardPage() {
   const [reports, setReports] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   
-  // Estado para el resumen del mes pasado
   const [lastMonthStats, setLastMonthStats] = useState<any>(null)
   const [showBanner, setShowBanner] = useState(true)
 
-  // === FASE 3.0: Variables de Jerarquía y Blindaje Caché ===
   const userEmail = user?.email?.toLowerCase().trim() || ''
   const isAdmin = user?.role === 'admin' || userEmail === 'entrenamientofarmaser@gmail.com'
   const isManager = user?.role === 'manager' || Object.keys(TEAM_MAPPING).includes(userEmail)
@@ -46,13 +47,11 @@ export default function DashboardPage() {
         const now = new Date()
         const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
         
-        // --- LÓGICA MES ACTUAL ---
         const startOfMonthStr = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
         const endOfMonthStr = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
         const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
         const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-        // --- LÓGICA MES PASADO (Resumen) ---
         const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
         const lmStartStr = lastMonthDate.toISOString().slice(0, 10)
         const lmEndStr = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10)
@@ -66,9 +65,7 @@ export default function DashboardPage() {
         let finalVisits: any[] = []
         let finalReports: any[] = []
 
-        // FASE 3.0: Lógica para Vistas Consolidadas (Admin o Manager)
         if ((isAdmin || isManager) && selectedRep === 'Todos') {
-          // Traemos todo el mes para no hacer N consultas
           const qVisits = query(visitsRef, where('visitDate', '>=', startOfMonthStr), where('visitDate', '<=', endOfMonthStr))
           const vSnap = await getDocs(qVisits)
           let tempVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -78,21 +75,16 @@ export default function DashboardPage() {
           let tempReports = rSnap.docs.map(d => d.data())
 
           if (isManager) {
-            // Manager: Filtramos en memoria solo los de su equipo
             const myTeam = TEAM_MAPPING[userEmail] || []
             finalVisits = tempVisits.filter((v: any) => myTeam.includes(String(v.userEmail || '').toLowerCase().trim()))
             finalReports = tempReports.filter((r: any) => myTeam.includes(String(r.userEmail || '').toLowerCase().trim()))
           } else {
-            // Admin: Ve todo
             finalVisits = tempVisits
             finalReports = tempReports
           }
-          
-          // Ocultamos el banner individual si estamos en vista de "Equipo"
           setLastMonthStats(null)
 
         } else {
-          // FASE 3.0: Vista Individual (Visitador, o Admin/Manager viendo a un visitador específico)
           const qVisits = query(visitsRef, where('userEmail', '==', targetEmail))
           const vSnap = await getDocs(qVisits)
           finalVisits = vSnap.docs.map(d => ({ id: d.id, ...d.data() })).filter((v: any) => v.visitDate >= startOfMonthStr && v.visitDate <= endOfMonthStr)
@@ -104,7 +96,6 @@ export default function DashboardPage() {
             return rDate >= startDate && rDate <= endDate
           })
 
-          // Calcular Banner del mes pasado para este usuario
           const lmVisits = vSnap.docs.map(d => d.data()).filter((v: any) => v.visitDate >= lmStartStr && v.visitDate <= lmEndStr)
           const lmReports = rSnap.docs.map(d => d.data()).filter((r: any) => {
             const rDate = r.reportedAt?.toDate ? r.reportedAt.toDate() : new Date(r.reportedAt)
@@ -136,7 +127,6 @@ export default function DashboardPage() {
     loadData()
   }, [userEmail, selectedRep, isAdmin, isManager])
 
-  // Cálculos reactivos de métricas
   const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
   
   const myBase = useMemo(() => {
@@ -164,7 +154,7 @@ export default function DashboardPage() {
       <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-6">
         <div>
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">Panel de Control</h1>
-          <p className="text-gray-500 font-medium text-sm mt-2">{user?.email} {isAdmin ? '(Modo Admin)' : isManager ? '(Modo Gerente)' : ''}</p>
+          <p className="text-gray-500 font-medium text-sm mt-2">{user?.email} {isAdmin ? '(Super Admin)' : isManager ? '(Modo Gerente)' : ''}</p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full xl:w-auto">
@@ -197,8 +187,64 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* --- BANNER DE LOGROS MES PASADO --- */}
-      {lastMonthStats && showBanner && (
+      {/* --- BANNER DE CONTROL MULTI-ROL --- */}
+      
+      {/* 1. BANNER PARA SUPER ADMIN */}
+      {isAdmin && selectedRep === 'Todos' ? (
+        <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 rounded-[40px] p-8 md:p-12 shadow-2xl mb-10 border border-white/10 group">
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex items-center gap-6">
+              <div className="w-20 h-20 bg-indigo-500/20 backdrop-blur-xl rounded-3xl flex items-center justify-center text-indigo-300 shadow-inner border border-indigo-500/30 group-hover:scale-110 transition-transform duration-500">
+                <Activity size={40} className="animate-pulse" />
+              </div>
+              <div>
+                <h2 className="text-white text-3xl md:text-4xl font-black uppercase tracking-tighter italic leading-none">
+                  Estado Global <span className="text-indigo-400">Farmaser</span>
+                </h2>
+                <p className="text-indigo-100/80 font-medium text-sm md:text-lg mt-2 max-w-xl">
+                  Se coordinan <span className="font-black text-white">{visits.length}</span> citas totales este mes, con efectividad global del <span className="font-black text-indigo-300">{efectividad}%</span>.
+                </p>
+              </div>
+            </div>
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-[30px] flex flex-col items-center justify-center min-w-[200px]">
+              <p className="text-[10px] font-black text-indigo-300 uppercase tracking-[0.2em] mb-1">Pendientes Globales</p>
+              <span className="text-4xl font-black text-white">{noReportadas}</span>
+              <p className="text-[9px] font-bold text-red-400 uppercase mt-2 animate-bounce">Revisión Requerida</p>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] -mr-20 -mt-20" />
+        </div>
+      ) 
+      
+      /* 2. BANNER PARA GERENTE (CONSOLIDADO EQUIPO) */
+      : isManager && selectedRep === 'Todos' ? (
+        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-950 rounded-[40px] p-8 md:p-12 shadow-2xl mb-10 border border-white/10 group">
+          <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex items-center gap-6">
+              <div className="w-20 h-20 bg-purple-500/20 backdrop-blur-xl rounded-3xl flex items-center justify-center text-purple-300 border border-purple-500/30 group-hover:rotate-12 transition-transform duration-500">
+                <Briefcase size={40} />
+              </div>
+              <div>
+                <h2 className="text-white text-3xl md:text-4xl font-black uppercase tracking-tighter italic leading-none">
+                  Gestión de <span className="text-purple-400">Equipo</span>
+                </h2>
+                <p className="text-purple-100/80 font-medium text-sm md:text-lg mt-2 max-w-xl">
+                  Tu equipo ha planeado <span className="font-black text-white">{visits.length} visitas</span>. La efectividad grupal actual es del <span className="font-black text-purple-300">{efectividad}%</span>.
+                </p>
+              </div>
+            </div>
+            <div className="bg-purple-500/10 backdrop-blur-md border border-purple-400/20 p-6 rounded-[30px] flex flex-col items-center justify-center min-w-[200px]">
+              <p className="text-[10px] font-black text-purple-300 uppercase tracking-[0.2em] mb-1">Sin Reportar en Equipo</p>
+              <span className="text-4xl font-black text-white">{noReportadas}</span>
+              <p className="text-[9px] font-bold text-orange-400 uppercase mt-2">Seguimiento Sugerido</p>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/10 rounded-full blur-[100px] -mr-20 -mt-20" />
+        </div>
+      )
+
+      /* 3. BANNER INDIVIDUAL (PARA VISITADORES O CUANDO SE FILTRA A ALGUIEN) */
+      : lastMonthStats && showBanner ? (
         <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 rounded-[35px] p-6 mb-10 shadow-xl shadow-blue-100 border border-blue-400/20">
           <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
             <div className="bg-white/10 p-4 rounded-[24px] backdrop-blur-md border border-white/20">
@@ -224,11 +270,10 @@ export default function DashboardPage() {
               <X size={20} />
             </button>
           </div>
-          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
         </div>
-      )}
+      ) : null}
 
-      {/* --- TARJETAS DE INDICADORES --- */}
+      {/* --- TARJETAS DE INDICADORES (IGUALES QUE ANTES) --- */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-blue-200 transition-colors">
           <div className="flex items-start justify-between w-full">
@@ -310,8 +355,6 @@ export default function DashboardPage() {
                   <div>
                     <p className="font-black text-gray-900 uppercase text-sm leading-tight">{v.doctorName}</p>
                     <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{v.doctorDetails?.city || 'Sin ciudad'} • {v.doctorDetails?.specialty || 'General'}</p>
-                    
-                    {/* FASE 3.0: Identificador de dueño de cita para vistas consolidadas */}
                     {(isAdmin || isManager) && selectedRep === 'Todos' && (
                        <p className="text-[9px] font-black text-indigo-500 mt-1 truncate">{v.userEmail}</p>
                     )}
