@@ -1,48 +1,61 @@
 'use client';
+import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
-import Sidebar from './components/layout/Sidebar'; 
+import Sidebar from '@/components/Sidebar';
 import { usePathname } from 'next/navigation';
+import { Menu, X } from 'lucide-react';
 import './globals.css';
 
 function RootLayoutContent({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Variable 2: Espera a verificar si hay usuario antes de tomar decisiones
-  if (loading) return null; 
+  if (loading) return null;
 
+  // 🛡️ EXCEPCIÓN PARA CRON JOBS Y APIs
   const isApiRoute = pathname?.startsWith('/api/');
-  
-  // Variable 1 y 7: La regla de oro ORIGINAL. Si no hay usuario o es /login, renderiza sin menú.
-  // Esto es lo que hace que el botón de SALIR funcione perfectamente.
   const isLoginPage = (!isApiRoute && pathname === '/login') || (!isApiRoute && !user);
 
   if (isLoginPage) {
     return <div className="min-h-screen bg-gray-50">{children}</div>;
   }
 
+  // Si es API, renderiza el contenido puro (JSON) sin interfaz de usuario
   if (isApiRoute) {
     return <>{children}</>;
   }
 
   return (
     <div className="flex h-screen w-full bg-gray-50 overflow-hidden relative">
-      
-      {/* Variable 4 y 5: Renderizamos el Sidebar SUELTO, sin esconderlo en móviles. 
-          Así su propio botón hamburguesa y su propia lógica se encargan de todo. */}
-      <Sidebar />
+      <button 
+        onClick={() => setIsMobileMenuOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-40 p-2 bg-slate-900 text-white rounded-lg shadow-lg"
+      >
+        <Menu size={24} />
+      </button>
 
-      {/* Variable 3: El "Fantasma". Este bloque de 64px SÓLO aparece en PC (lg:block).
-          Su único trabajo es empujar el main hacia la derecha para que el Sidebar no tape el botón SALIR. */}
-      <div className="hidden lg:block w-64 h-full flex-shrink-0"></div>
+      <aside className="hidden lg:flex w-64 h-full flex-shrink-0">
+        <Sidebar />
+      </aside>
 
-      {/* Contenido Principal */}
+      {isMobileMenuOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)}></div>
+          <div className="relative w-64 h-full bg-slate-900 shadow-xl animate-in slide-in-from-left duration-300">
+            <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-4 right-4 text-white p-1">
+              <X size={24} />
+            </button>
+            <Sidebar />
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <div className="flex-1 overflow-y-auto w-full">
           {children}
         </div>
       </main>
-
     </div>
   );
 }
