@@ -1,8 +1,8 @@
+// app/components/layout/Sidebar.tsx
 'use client'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation' // <-- Agregado useRouter
+import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
-// Importamos TODOS los iconos originales + Sparkles para Novedades
 import { 
   Sparkles, LayoutDashboard, Building2, ClipboardList, 
   CalendarDays, BarChart3, BookOpen, Lock, UserCircle, 
@@ -12,11 +12,9 @@ import { useState } from 'react'
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const router = useRouter() // <-- Inicializado el enrutador
   const { logout } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
 
-  // AQUÍ ESTÁ TU MENÚ COMPLETO RESTAURADO
   const menuItems = [
     { name: 'Novedades', icon: Sparkles, path: '/news' },
     { name: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
@@ -30,12 +28,6 @@ export default function Sidebar() {
     { name: 'Mi Perfil', icon: UserCircle, path: '/perfil' },
   ]
 
-  // <-- Función que cierra sesión y redirige al login
-  const handleLogout = async () => {
-    await logout()
-    router.push('/login')
-  }
-
   return (
     <>
       <button onClick={() => setIsOpen(!isOpen)} className="lg:hidden fixed top-6 left-6 z-[60] p-3 bg-gray-900 text-white rounded-2xl shadow-xl">
@@ -44,14 +36,8 @@ export default function Sidebar() {
 
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#0F172A] text-white transition-transform duration-300 ease-in-out transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 border-r border-gray-800`}>
         <div className="flex flex-col h-full p-6">
-          
-          {/* SECCIÓN DEL LOGO */}
           <div className="mb-10 pt-4 px-2">
-            <img 
-              src="/Farmaser%20Logo.png" 
-              alt="Farmaser Logo" 
-              className="h-12 w-auto object-contain"
-            />
+            <img src="/Farmaser%20Logo.png" alt="Farmaser Logo" className="h-12 w-auto object-contain" />
             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.3em] mt-2 italic">Gestión Pro</p>
           </div>
 
@@ -65,8 +51,8 @@ export default function Sidebar() {
           </nav>
 
           <div className="pt-6 border-t border-gray-800 shrink-0">
-            {/* <-- Botón actualizado con handleLogout */}
-            <button onClick={handleLogout} className="flex items-center gap-4 px-4 py-4 w-full text-red-400 font-bold text-sm hover:bg-red-500/10 rounded-2xl transition-all cursor-pointer">
+            {/* 🔥 TU BOTÓN ORIGINAL INTACTO */}
+            <button onClick={() => logout()} className="flex items-center gap-4 px-4 py-4 w-full text-red-400 font-bold text-sm hover:bg-red-500/10 rounded-2xl transition-all">
               <LogOut size={20} /> SALIR
             </button>
           </div>
