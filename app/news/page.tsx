@@ -1,44 +1,42 @@
 'use client'
-import { Megaphone, Sparkles, Zap, Wrench, ChevronRight, Bell } from 'lucide-react'
+import { Megaphone, ChevronRight, Star, MessageSquare, Eye, Rocket } from 'lucide-react'
 
-// Aquí puedes ir agregando nuevas noticias en el futuro. 
-// La más nueva siempre arriba del array.
 const UPDATES = [
   {
     id: 1,
-    tag: 'Nueva Función',
-    title: 'Módulo de Novedades Activo',
-    description: '¡Bienvenidos al nuevo centro de noticias! Aquí informaremos sobre cada mejora técnica y visual que implementemos para optimizar su gestión diaria.',
+    tag: 'Bienvenida',
+    title: '¡Arrancamos un nuevo ciclo!',
+    description: 'Te damos la bienvenida al inicio de este nuevo mes laboral. Hemos diseñado esta sección de novedades para mantenerte al día con las herramientas que creamos para facilitar tu trabajo en la calle. ¡Mucho éxito en tus visitas de esta semana!',
     date: 'Hoy',
-    icon: <Bell className="text-indigo-600" size={20} />,
+    icon: <Rocket className="text-indigo-600" size={20} />,
     color: 'bg-indigo-50',
   },
   {
     id: 2,
-    tag: 'Mejora',
-    title: 'Arquitectura 3.3: Control de Roles',
-    description: 'Hemos blindado la seguridad. Ahora los Administradores y Gerentes tienen banners con métricas globales, mientras que los Visitadores mantienen el foco en su desempeño individual.',
+    tag: 'Tu Desempeño',
+    title: 'Tus logros, en un solo vistazo',
+    description: 'Agregamos un banner visual interactivo en tu Dashboard. Ahora, al iniciar tu día, podrás ver un resumen destacado de tu gestión, efectividad y cobertura del mes que acaba de cerrar. ¡Úsalo como motivación para superar tus propias metas!',
     date: 'Hoy',
-    icon: <Zap className="text-blue-600" size={20} />,
-    color: 'bg-blue-50',
+    icon: <Star className="text-yellow-500" size={20} />,
+    color: 'bg-yellow-50',
   },
   {
     id: 3,
-    tag: 'Diseño',
-    title: 'Optimización Visual (High-Contrast)',
-    description: 'Restauramos el estilo de tarjetas sólidas en color "Azul Farmaser" para facilitar la lectura de la agenda en condiciones de mucha luz durante las visitas.',
+    tag: 'Nueva Función',
+    title: 'Historial de seguimiento a la mano',
+    description: 'Para hacer tus visitas médicas mucho más efectivas, ahora podrás ver el mensaje de "seguimiento" que dejaste en tu visita anterior directamente en tu módulo de Reportes. También lo encontrarás disponible al momento de planear en el módulo de Visitas.',
     date: 'Hoy',
-    icon: <Sparkles className="text-purple-600" size={20} />,
-    color: 'bg-purple-50',
+    icon: <MessageSquare className="text-green-600" size={20} />,
+    color: 'bg-green-50',
   },
   {
     id: 4,
-    tag: 'Corrección',
-    title: 'Sincronización de Itinerario',
-    description: 'Se resolvió el conflicto de filtros que impedía a algunos visitadores visualizar sus rutas programadas en el calendario mensual.',
-    date: 'Ayer',
-    icon: <Wrench className="text-orange-600" size={20} />,
-    color: 'bg-orange-50',
+    tag: 'Diseño',
+    title: 'Mejor visibilidad para la calle',
+    description: 'Renovamos el diseño de tu agenda diaria. Volvemos al característico "Azul Farmaser" sólido en tus tarjetas de visitas para garantizar que puedas leer tu programación con total claridad, incluso cuando estés bajo la luz del sol.',
+    date: 'Reciente',
+    icon: <Eye className="text-blue-600" size={20} />,
+    color: 'bg-blue-50',
   }
 ]
 
@@ -54,7 +52,7 @@ export default function NewsPage() {
           </div>
           <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">Novedades</h1>
         </div>
-        <p className="text-gray-500 font-medium ml-1">Pulso de actualizaciones y mejoras en la plataforma <span className="text-blue-600 font-bold">Farmaser Gestión Pro</span>.</p>
+        <p className="text-gray-500 font-medium ml-1">Descubre las nuevas herramientas y mejoras diseñadas para potenciar tu día a día.</p>
       </header>
 
       {/* LISTADO DE ACTUALIZACIONES */}
@@ -100,7 +98,7 @@ export default function NewsPage() {
       <footer className="mt-16 text-center py-10 border-t border-dashed border-gray-200">
         <div className="flex flex-col items-center gap-2">
           <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em]">
-            Farmaser S.A. • Innovación & Tecnología
+            Farmaser S.A. • Gestión Pro
           </p>
           <div className="h-1 w-12 bg-blue-100 rounded-full"></div>
         </div>
