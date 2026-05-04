@@ -28,16 +28,16 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen w-full bg-gray-50 overflow-hidden relative">
       
-      {/* 
-        ¡AQUÍ ESTÁ LA MAGIA! 
-        El componente Sidebar ya tiene su propio botón de hamburguesa y su animación 
-        para celulares integrada. Solo necesitamos llamarlo una vez y él se encarga del resto.
-      */}
+      {/* El menú lateral visual */}
       <Sidebar />
+
+      {/* 🛡️ LA SOLUCIÓN: Este bloque invisible ocupa los 64px del menú en PC. 
+          Evita que la página se meta debajo del menú y bloquee los clics. */}
+      <div className="hidden lg:block w-64 h-full flex-shrink-0"></div>
 
       {/* CONTENIDO PRINCIPAL */}
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        <div className="flex-1 overflow-y-auto w-full">
+        <div className="flex-1 overflow-y-auto w-full relative z-0">
           {children}
         </div>
       </main>
