@@ -89,7 +89,7 @@ export default function PlanningPage() {
         all = all.filter((v: any) => myTeam.includes(String(v.userEmail || '').toLowerCase().trim()));
       }
 
-      // IMPORTANTE: Esto asegura que 'plannedVisits' SOLAMENTE tenga citas del mes actual.
+      // ESTO GARANTIZA QUE 'plannedVisits' SOLO TENGA CITAS DEL MES VIGENTE
       setPlannedVisits(all.filter((v: any) => v.visitDate?.includes(filterKey)))
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
@@ -151,14 +151,10 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
-  // 🔥 LA LÓGICA DIRECTA Y SIN ENREDOS (MES A MES)
+  // 🔥 LÓGICA DE EXCLUSIÓN BLINDADA CONTRA "SIN CODIGO" Y MESES ANTERIORES
   const availableDocs = useMemo(() => {
-    // 1. Extraemos los nombres y IDs de los que YA planeaste ESTE MES
-    const planeadosIds = plannedVisits.map(v => String(v.doctorId || '').trim()).filter(id => id !== '');
-    const planeadosNombres = plannedVisits.map(v => normalizeStr(v.doctorName)).filter(n => n !== '');
-
     return myFullDocsList.filter(doc => {
-      // 2. Si estamos editando una cita, no ocultamos a ese médico
+      // 1. Si estamos editando, permitimos que el médico seleccionado se vea
       if (editingId) {
         const currentEdit = plannedVisits.find(v => v.id === editingId);
         if (currentEdit && (currentEdit.doctorId === doc.id || normalizeStr(currentEdit.doctorName) === normalizeStr(doc.name))) {
@@ -166,11 +162,23 @@ export default function PlanningPage() {
         }
       }
       
-      // 3. Revisamos si el médico está en la lista de los planeados del mes
-      const tieneCita = planeadosIds.includes(String(doc.id || '').trim()) || planeadosNombres.includes(normalizeStr(doc.name));
+      // 2. Revisamos si YA ESTÁ en la lista del mes vigente
+      const isGenericId = !doc.id || String(doc.id).includes('SIN CODIGO');
       
-      // 4. Si TIENE cita -> lo ocultamos (false). Si NO TIENE -> lo mostramos (true).
-      return !tieneCita;
+      const tieneCitaEsteMes = plannedVisits.some(v => {
+        // Opción A: Tiene código real y coincide
+        if (!isGenericId && v.doctorId && String(v.doctorId).trim() === String(doc.id).trim()) {
+          return true;
+        }
+        // Opción B: Es "SIN CODIGO", así que comparamos por el Nombre Exacto
+        if (normalizeStr(v.doctorName) === normalizeStr(doc.name)) {
+          return true;
+        }
+        return false;
+      });
+      
+      // 3. Lo ocultamos SOLO si tiene cita en el mes.
+      return !tieneCitaEsteMes;
     });
   }, [myFullDocsList, plannedVisits, editingId]);
 
