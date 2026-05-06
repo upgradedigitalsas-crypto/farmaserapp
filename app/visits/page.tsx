@@ -59,7 +59,6 @@ export default function PlanningPage() {
   const [status, setStatus] = useState('Planeada')
   const [editingId, setEditingId] = useState<string | null>(null)
 
-  // === FASE 3.0: Variables de Jerarquía y Blindaje Caché ===
   const userEmail = user?.email?.toLowerCase().trim() || ''
   const isAdmin = user?.role === 'admin' || userEmail === 'entrenamientofarmaser@gmail.com'
   const isManager = user?.role === 'manager' || Object.keys(TEAM_MAPPING).includes(userEmail)
@@ -97,6 +96,7 @@ export default function PlanningPage() {
 
   useEffect(() => { fetchData() }, [user, selectedRep])
 
+  // Lógica para traer último seguimiento (Reporte)
   useEffect(() => {
     if (!selectedDoctor) {
       setLastComment(null);
@@ -106,12 +106,7 @@ export default function PlanningPage() {
     const fetchLastComment = async () => {
       try {
         const emailToSearch = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail;
-        
-        const q = query(
-          collection(db, 'visit_reports'),
-          where('userEmail', '==', emailToSearch)
-        );
-        
+        const q = query(collection(db, 'visit_reports'), where('userEmail', '==', emailToSearch));
         const snap = await getDocs(q);
         if (!snap.empty) {
           const doctorReports = snap.docs
@@ -134,7 +129,6 @@ export default function PlanningPage() {
         setLastComment(null);
       }
     };
-
     fetchLastComment();
   }, [selectedDoctor, user, selectedRep, isAdmin, isManager, userEmail]);
 
@@ -147,6 +141,56 @@ export default function PlanningPage() {
     }
     return []
   }, [doctors, isAdmin, isManager, userEmail])
+
+  // === BASE DE MÉDICOS SEGÚN JERARQUÍA ===
+  const myFullDocsList = useMemo(() => {
+    if (isAdmin && selectedRep === 'Todos') return doctors.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    if (isManager && selectedRep === 'Todos') {
+      const myTeam = TEAM_MAPPING[userEmail] || [];
+      return doctors.filter((d: any) => myTeam.includes(String(d.assignedTo || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name));
+    }
+    const emailToFilter = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail;
+    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
+  }, [doctors, isAdmin, isManager, userEmail, selectedRep])
+
+  // 🔥🔥🔥 FASE 4.0: LÓGICA DE EXCLUSIÓN (BACKUP RECUPERADO) 🔥🔥🔥
+  // Filtra médicos que YA TIENEN una visita planeada este mes
+  const availableDocs = useMemo(() => {
+    return myFullDocsList.filter(docItem => {
+      // Si estamos editando una cita existente, permitimos que el médico de esa cita aparezca
+      if (editingId) {
+        const currentEditVisit = plannedVisits.find(v => v.id === editingId);
+        if (currentEditVisit?.doctorId === docItem.id) return true;
+      }
+      // Ocultar si ya existe en las visitas planeadas del mes
+      return !plannedVisits.some(v => v.doctorId === docItem.id);
+    });
+  }, [myFullDocsList, plannedVisits, editingId]);
+
+  const citiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.city).filter(Boolean))).sort(), [myFullDocsList])
+  const specialtiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.specialty).filter(Boolean))).sort(), [myFullDocsList])
+  const categoriesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.category).filter(Boolean))).sort(), [myFullDocsList])
+
+  // === FILTRADO PARA BÚSQUEDA MANUAL ===
+  const myDocsFiltered = useMemo(() => {
+    if (selectedDoctor) return [];
+    if (!searchTerm.trim() && !filterCity && !filterSpecialty && !filterCategory) return [];
+    
+    // Usamos availableDocs para que no aparezcan los ya planeados en la búsqueda
+    let filtered = availableDocs; 
+    
+    if (filterCity) filtered = filtered.filter(d => d.city === filterCity);
+    if (filterSpecialty) filtered = filtered.filter(d => d.specialty === filterSpecialty);
+    if (filterCategory) filtered = filtered.filter(d => d.category === filterCategory);
+    if (searchTerm.trim()) {
+      const searchWords = normalizeStr(searchTerm).split(/\s+/).filter(w => w.length > 0);
+      filtered = filtered.filter(d => {
+        const docName = normalizeStr(d.name || '');
+        return searchWords.every(word => docName.includes(word));
+      });
+    }
+    return filtered;
+  }, [availableDocs, searchTerm, filterCity, filterSpecialty, filterCategory, selectedDoctor]);
 
   const handleSaveVisit = async () => {
     if (!selectedDoctor || !visitDate) return alert('Datos incompletos')
@@ -221,43 +265,8 @@ export default function PlanningPage() {
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.setAttribute("download", `Planeacion_${monthName}_${currentYear}.csv`);
-    document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
   }
-
-  const myFullDocsList = useMemo(() => {
-    if (isAdmin && selectedRep === 'Todos') return doctors.sort((a: any, b: any) => a.name.localeCompare(b.name));
-    
-    if (isManager && selectedRep === 'Todos') {
-      const myTeam = TEAM_MAPPING[userEmail] || [];
-      return doctors.filter((d: any) => myTeam.includes(String(d.assignedTo || '').toLowerCase().trim())).sort((a: any, b: any) => a.name.localeCompare(b.name));
-    }
-
-    const emailToFilter = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail;
-    return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
-  }, [doctors, isAdmin, isManager, userEmail, selectedRep])
-
-  const citiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.city).filter(Boolean))).sort(), [myFullDocsList])
-  const specialtiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.specialty).filter(Boolean))).sort(), [myFullDocsList])
-  const categoriesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.category).filter(Boolean))).sort(), [myFullDocsList])
-
-  const myDocsFiltered = useMemo(() => {
-    if (selectedDoctor) return [];
-    if (!searchTerm.trim() && !filterCity && !filterSpecialty && !filterCategory) return [];
-    let filtered = myFullDocsList;
-    if (filterCity) filtered = filtered.filter(d => d.city === filterCity);
-    if (filterSpecialty) filtered = filtered.filter(d => d.specialty === filterSpecialty);
-    if (filterCategory) filtered = filtered.filter(d => d.category === filterCategory);
-    if (searchTerm.trim()) {
-      const searchWords = normalizeStr(searchTerm).split(/\s+/).filter(w => w.length > 0);
-      filtered = filtered.filter(d => {
-        const docName = normalizeStr(d.name || '');
-        return searchWords.every(word => docName.includes(word));
-      });
-    }
-    return filtered;
-  }, [myFullDocsList, searchTerm, filterCity, filterSpecialty, filterCategory, selectedDoctor]);
 
   const days = Array.from({length: daysInMonth}, (_, i) => i + 1)
 
@@ -293,25 +302,31 @@ export default function PlanningPage() {
       </header>
 
       <div className="flex flex-col gap-10">
-        
-        {/* Formulario de Planeación */}
         {((!isAdmin && !isManager) || selectedRep !== 'Todos') && (
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100">
+                {/* 🔥 EL SELECTOR AHORA USA availableDocs PARA OCULTAR LOS YA PLANEADOS */}
                 <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
-                  const docFound = myFullDocsList.find((d:any) => d.id === e.target.value)
+                  const docFound = availableDocs.find((d:any) => d.id === e.target.value)
                   if (docFound) { setSelectedDoctor(docFound); }
                 }}>
-                  <option value="">-- Seleccionar Médico desde Lista Completa --</option>
-                  {myFullDocsList.map((docItem:any) => <option key={docItem.id} value={docItem.id}>{docItem.name} — {docItem.city}</option>)}
+                  <option value="">-- Médicos Pendientes por Planear --</option>
+                  {availableDocs.map((docItem:any) => (
+                    <option key={docItem.id} value={docItem.id}>
+                      {docItem.name} — {docItem.city}
+                    </option>
+                  ))}
                 </select>
+
                 <div className="my-6 border-b border-gray-100"></div>
                 <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Filtrar Base Médica</h3>
+                
                 <div className="relative mb-3">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input type="text" placeholder="Escribe un nombre o apellido..." className="w-full bg-white border-2 border-gray-100 shadow-sm rounded-2xl py-3 pl-12 pr-4 text-sm font-bold outline-none focus:border-blue-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-500 w-4 h-4 pointer-events-none" />
@@ -336,6 +351,7 @@ export default function PlanningPage() {
                   </div>
                 </div>
 
+                {/* RESULTADOS DE BÚSQUEDA (YA FILTRADOS POR EXCLUSIÓN) */}
                 {myDocsFiltered.length > 0 && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                     {myDocsFiltered.map((docItem:any) => (
@@ -418,8 +434,6 @@ export default function PlanningPage() {
                 <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visitsOnDay.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
                   <span className={`text-[11px] font-black mb-2 ${visitsOnDay.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / {currentMonthStr}</span>
                   <div className="space-y-1.5 overflow-y-auto custom-scrollbar pr-1 flex-1">
-                    
-                    {/* Tarjetas de Visita Estilo Sólido Azul */}
                     {visitsOnDay.map((v: any) => (
                       <button 
                         key={v.id} 
@@ -435,7 +449,6 @@ export default function PlanningPage() {
                         <p className="text-[10px] font-black text-white uppercase leading-tight line-clamp-2">
                           {v.doctorName}
                         </p>
-                        
                         <div className="flex justify-between items-center mt-2">
                           <p className="text-[8px] font-bold text-blue-100 uppercase italic truncate max-w-[70%]">
                             {v.doctorDetails?.city || '---'}
@@ -444,8 +457,6 @@ export default function PlanningPage() {
                             {v.status}
                           </span>
                         </div>
-
-                        {/* Dueño de la cita (Solo visible para jefes en modo Todos) */}
                         {(isAdmin || isManager) && selectedRep === 'Todos' && (
                           <p className="text-[7px] font-black text-blue-200 mt-1 pt-1 border-t border-white/10 truncate">
                             {v.userEmail.split('@')[0]}
