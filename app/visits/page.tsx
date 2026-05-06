@@ -163,17 +163,25 @@ export default function PlanningPage() {
       }
       
       // 2. Revisamos si YA ESTÁ en la lista del mes vigente
-      const isGenericId = !doc.id || String(doc.id).includes('SIN CODIGO');
-      
       const tieneCitaEsteMes = plannedVisits.some(v => {
-        // Opción A: Tiene código real y coincide
-        if (!isGenericId && v.doctorId && String(v.doctorId).trim() === String(doc.id).trim()) {
+        const isDocIdReal = doc.id && !String(doc.id).includes('SIN CODIGO');
+        const isVisitIdReal = v.doctorId && !String(v.doctorId).includes('SIN CODIGO');
+
+        // A. Si ambos tienen código real, el código manda
+        if (isDocIdReal && isVisitIdReal) {
+          if (String(doc.id).trim() === String(v.doctorId).trim()) return true;
+        }
+        
+        // B. Si alguno no tiene código, cruzamos por Nombre Y Ciudad exactos
+        const docName = normalizeStr(doc.name);
+        const visitName = normalizeStr(v.doctorName);
+        const docCity = normalizeStr(doc.city);
+        const visitCity = normalizeStr(v.doctorDetails?.city);
+
+        if (docName === visitName && docCity === visitCity) {
           return true;
         }
-        // Opción B: Es "SIN CODIGO", así que comparamos por el Nombre Exacto
-        if (normalizeStr(v.doctorName) === normalizeStr(doc.name)) {
-          return true;
-        }
+        
         return false;
       });
       
@@ -319,16 +327,30 @@ export default function PlanningPage() {
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
-                  const docFound = availableDocs.find((d:any) => d.id === e.target.value)
-                  if (docFound) { setSelectedDoctor(docFound); }
-                }}>
-                  <option value="">-- Médicos Pendientes por Planear --</option>
-                  {availableDocs.map((docItem:any) => (
-                    <option key={docItem.id} value={docItem.id}>
-                      {docItem.name} — {docItem.city}
-                    </option>
-                  ))}
+                {/* 🔥 AGREGADO EL ESTADO 'LOADING' PARA EVITAR EL PARPADEO */}
+                <select 
+                  className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" 
+                  disabled={loading} 
+                  value={selectedDoctor?.id || ""} 
+                  onChange={(e) => {
+                    const docFound = availableDocs.find((d:any) => d.id === e.target.value)
+                    if (docFound) { setSelectedDoctor(docFound); }
+                  }}
+                >
+                  {loading ? (
+                    <option value="">Cargando información de Firebase...</option>
+                  ) : availableDocs.length === 0 ? (
+                    <option value="">-- Todos los médicos ya están agendados este mes --</option>
+                  ) : (
+                    <>
+                      <option value="">-- Médicos Pendientes por Planear --</option>
+                      {availableDocs.map((docItem:any) => (
+                        <option key={docItem.id} value={docItem.id}>
+                          {docItem.name} — {docItem.city}
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
 
                 <div className="my-6 border-b border-gray-100"></div>
