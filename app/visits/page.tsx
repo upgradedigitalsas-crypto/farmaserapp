@@ -89,7 +89,6 @@ export default function PlanningPage() {
         all = all.filter((v: any) => myTeam.includes(String(v.userEmail || '').toLowerCase().trim()));
       }
 
-      // ESTO GARANTIZA QUE 'plannedVisits' SOLO TENGA CITAS DEL MES VIGENTE
       setPlannedVisits(all.filter((v: any) => v.visitDate?.includes(filterKey)))
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
@@ -151,10 +150,9 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
-  // 🔥 LÓGICA DE EXCLUSIÓN BLINDADA CONTRA "SIN CODIGO" Y MESES ANTERIORES
+  // 🔥 LÓGICA REESCRITA PARA PROTEGER SUCURSALES Y NOMBRES DUPLICADOS
   const availableDocs = useMemo(() => {
     return myFullDocsList.filter(doc => {
-      // 1. Si estamos editando, permitimos que el médico seleccionado se vea
       if (editingId) {
         const currentEdit = plannedVisits.find(v => v.id === editingId);
         if (currentEdit && (currentEdit.doctorId === doc.id || normalizeStr(currentEdit.doctorName) === normalizeStr(doc.name))) {
@@ -162,30 +160,33 @@ export default function PlanningPage() {
         }
       }
       
-      // 2. Revisamos si YA ESTÁ en la lista del mes vigente
       const tieneCitaEsteMes = plannedVisits.some(v => {
-        const isDocIdReal = doc.id && !String(doc.id).includes('SIN CODIGO');
-        const isVisitIdReal = v.doctorId && !String(v.doctorId).includes('SIN CODIGO');
+        const docIdStr = doc.id ? String(doc.id).trim() : '';
+        const visitIdStr = v.doctorId ? String(v.doctorId).trim() : '';
+        
+        const isDocIdReal = docIdStr !== '' && !docIdStr.includes('SIN CODIGO');
+        const isVisitIdReal = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
 
-        // A. Si ambos tienen código real, el código manda
+        // REGLA 1: Si AMBOS tienen ID real, solo se oculta si el ID es exactamente el mismo.
+        // Si no es el mismo, RETORNA FALSE DE INMEDIATO para no cruzar nombres y salvar las sucursales.
         if (isDocIdReal && isVisitIdReal) {
-          if (String(doc.id).trim() === String(v.doctorId).trim()) return true;
+          return docIdStr === visitIdStr;
         }
         
-        // B. Si alguno no tiene código, cruzamos por Nombre Y Ciudad exactos
+        // REGLA 2: Solo si uno de los dos NO tiene código, cruzamos por Nombre y Ciudad
         const docName = normalizeStr(doc.name);
         const visitName = normalizeStr(v.doctorName);
         const docCity = normalizeStr(doc.city);
         const visitCity = normalizeStr(v.doctorDetails?.city);
 
-        if (docName === visitName && docCity === visitCity) {
+        // Validación extra de seguridad: Nombres no pueden estar vacíos
+        if (docName && visitName && docName === visitName && docCity === visitCity) {
           return true;
         }
         
         return false;
       });
       
-      // 3. Lo ocultamos SOLO si tiene cita en el mes.
       return !tieneCitaEsteMes;
     });
   }, [myFullDocsList, plannedVisits, editingId]);
@@ -327,7 +328,6 @@ export default function PlanningPage() {
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100">
-                {/* 🔥 AGREGADO EL ESTADO 'LOADING' PARA EVITAR EL PARPADEO */}
                 <select 
                   className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" 
                   disabled={loading} 
