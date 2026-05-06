@@ -5,13 +5,13 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download, MessageSquare } from 'lucide-react'
 
-// === LÓGICA AUTOMÁTICA DE FECHAS ===
+// === LÓGICA AUTOMÁTICA DE FECHAS (MES A MES) ===
 const now = new Date();
 const currentMonthStr = (now.getMonth() + 1).toString().padStart(2, '0');
 const currentYear = now.getFullYear();
 const monthName = now.toLocaleString('es-ES', { month: 'long' });
 const daysInMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
-const filterKey = `${currentYear}-${currentMonthStr}`;
+const filterKey = `${currentYear}-${currentMonthStr}`; // Ej: "2026-05"
 
 const getFingerprintLocation = () => {
   return new Promise((resolve) => {
@@ -29,10 +29,9 @@ const getFingerprintLocation = () => {
   });
 };
 
-const normalizeStr = (str: string) => {
+const normalizeStr = (str: any) => {
   if (!str) return '';
-  return str
-    .toString()
+  return String(str)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -90,13 +89,13 @@ export default function PlanningPage() {
         all = all.filter((v: any) => myTeam.includes(String(v.userEmail || '').toLowerCase().trim()));
       }
 
+      // IMPORTANTE: Esto asegura que 'plannedVisits' SOLAMENTE tenga citas del mes actual.
       setPlannedVisits(all.filter((v: any) => v.visitDate?.includes(filterKey)))
     } catch (e) { console.error(e) } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData() }, [user, selectedRep])
 
-  // Lógica para traer último seguimiento (Reporte)
   useEffect(() => {
     if (!selectedDoctor) {
       setLastComment(null);
@@ -142,7 +141,6 @@ export default function PlanningPage() {
     return []
   }, [doctors, isAdmin, isManager, userEmail])
 
-  // === BASE DE MÉDICOS SEGÚN JERARQUÍA ===
   const myFullDocsList = useMemo(() => {
     if (isAdmin && selectedRep === 'Todos') return doctors.sort((a: any, b: any) => a.name.localeCompare(b.name));
     if (isManager && selectedRep === 'Todos') {
@@ -153,17 +151,26 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
-  // 🔥🔥🔥 FASE 4.0: LÓGICA DE EXCLUSIÓN (BACKUP RECUPERADO) 🔥🔥🔥
-  // Filtra médicos que YA TIENEN una visita planeada este mes
+  // 🔥 LA LÓGICA DIRECTA Y SIN ENREDOS (MES A MES)
   const availableDocs = useMemo(() => {
-    return myFullDocsList.filter(docItem => {
-      // Si estamos editando una cita existente, permitimos que el médico de esa cita aparezca
+    // 1. Extraemos los nombres y IDs de los que YA planeaste ESTE MES
+    const planeadosIds = plannedVisits.map(v => String(v.doctorId || '').trim()).filter(id => id !== '');
+    const planeadosNombres = plannedVisits.map(v => normalizeStr(v.doctorName)).filter(n => n !== '');
+
+    return myFullDocsList.filter(doc => {
+      // 2. Si estamos editando una cita, no ocultamos a ese médico
       if (editingId) {
-        const currentEditVisit = plannedVisits.find(v => v.id === editingId);
-        if (currentEditVisit?.doctorId === docItem.id) return true;
+        const currentEdit = plannedVisits.find(v => v.id === editingId);
+        if (currentEdit && (currentEdit.doctorId === doc.id || normalizeStr(currentEdit.doctorName) === normalizeStr(doc.name))) {
+          return true;
+        }
       }
-      // Ocultar si ya existe en las visitas planeadas del mes
-      return !plannedVisits.some(v => v.doctorId === docItem.id);
+      
+      // 3. Revisamos si el médico está en la lista de los planeados del mes
+      const tieneCita = planeadosIds.includes(String(doc.id || '').trim()) || planeadosNombres.includes(normalizeStr(doc.name));
+      
+      // 4. Si TIENE cita -> lo ocultamos (false). Si NO TIENE -> lo mostramos (true).
+      return !tieneCita;
     });
   }, [myFullDocsList, plannedVisits, editingId]);
 
@@ -171,12 +178,10 @@ export default function PlanningPage() {
   const specialtiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.specialty).filter(Boolean))).sort(), [myFullDocsList])
   const categoriesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.category).filter(Boolean))).sort(), [myFullDocsList])
 
-  // === FILTRADO PARA BÚSQUEDA MANUAL ===
   const myDocsFiltered = useMemo(() => {
     if (selectedDoctor) return [];
     if (!searchTerm.trim() && !filterCity && !filterSpecialty && !filterCategory) return [];
     
-    // Usamos availableDocs para que no aparezcan los ya planeados en la búsqueda
     let filtered = availableDocs; 
     
     if (filterCity) filtered = filtered.filter(d => d.city === filterCity);
@@ -306,7 +311,6 @@ export default function PlanningPage() {
           <div className="w-full space-y-6">
             {!editingId && (
               <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100">
-                {/* 🔥 EL SELECTOR AHORA USA availableDocs PARA OCULTAR LOS YA PLANEADOS */}
                 <select className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" value={selectedDoctor?.id || ""} onChange={(e) => {
                   const docFound = availableDocs.find((d:any) => d.id === e.target.value)
                   if (docFound) { setSelectedDoctor(docFound); }
@@ -351,7 +355,6 @@ export default function PlanningPage() {
                   </div>
                 </div>
 
-                {/* RESULTADOS DE BÚSQUEDA (YA FILTRADOS POR EXCLUSIÓN) */}
                 {myDocsFiltered.length > 0 && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                     {myDocsFiltered.map((docItem:any) => (
@@ -424,7 +427,6 @@ export default function PlanningPage() {
           </div>
         )}
 
-        {/* Calendario Mensual */}
         <div className="w-full">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
