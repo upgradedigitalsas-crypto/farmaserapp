@@ -34,7 +34,7 @@ const normalizeStr = (str: any) => {
   return String(str)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, ' ') // <-- Blindaje extra para espacios dobles
+    .replace(/\s+/g, ' ') 
     .toLowerCase()
     .trim();
 };
@@ -139,48 +139,48 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
-  // 🔥 LA SOLUCIÓN FINAL: Combinar "Consumo Exacto" con "Salvavidas de Nombre"
+  // 🔥 LÓGICA DE FILTRADO PURA Y BLINDADA
   const availableDocs = useMemo(() => {
-    const plannedPool = [...plannedVisits];
-
-    if (editingId) {
-      const editIndex = plannedPool.findIndex(v => v.id === editingId);
-      if (editIndex !== -1) plannedPool.splice(editIndex, 1);
-    }
+    const usedVisitIndices = new Set(); // Guardamos las citas que ya emparejamos para no repetir
 
     return myFullDocsList.filter(doc => {
       const docIdStr = doc.id ? String(doc.id).trim() : '';
-      const isDocIdReal = docIdStr !== '' && !docIdStr.includes('SIN CODIGO');
+      const hasRealDocId = docIdStr !== '' && !docIdStr.includes('SIN CODIGO');
       const docName = normalizeStr(doc.name);
       const docCity = normalizeStr(doc.city);
 
-      const matchIndex = plannedPool.findIndex(v => {
-        const visitIdStr = v.doctorId ? String(v.doctorId).trim() : '';
-        const isVisitIdReal = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
+      const matchingVisitIndex = plannedVisits.findIndex((v, index) => {
+        if (v.id === editingId) return false; // Si estamos editando esta cita, la ignoramos
+        if (usedVisitIndices.has(index)) return false; // Si esta cita ya ocultó a un médico, la ignoramos
 
-        // Intento 1: Cruce estricto por ID (si ambos existen)
-        if (isDocIdReal && isVisitIdReal && docIdStr === visitIdStr) {
-          return true; 
-        }
-        
-        // Intento 2 (El Salvavidas): Si los IDs no coincidieron (porque Pablo los actualizó recientemente)
-        // o no tienen, cruzamos por el Nombre y la Ciudad exactos.
-        const visitName = normalizeStr(v.doctorName);
-        const visitCity = normalizeStr(v.doctorDetails?.city);
-        
-        if (docName === visitName && docCity === visitCity) {
+        const visitIdStr = v.doctorId ? String(v.doctorId).trim() : '';
+        const hasRealVisitId = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
+
+        // REGLA 1: Cruce por ID exacto
+        if (hasRealDocId && hasRealVisitId && docIdStr === visitIdStr) {
           return true;
         }
 
-        return false;
+        // REGLA 2: El Salvavidas (Cruce por Nombre y Ciudad)
+        const visitName = normalizeStr(v.doctorName);
+        if (docName === visitName) {
+          const visitCity = normalizeStr(v.doctorDetails?.city || v.city || '');
+          // Si coinciden en ciudad, o si la cita antigua no tiene ciudad guardada
+          if (visitCity === '' || docCity === visitCity) {
+            return true;
+          }
+        }
+
+        return false; // No hay coincidencia
       });
 
-      if (matchIndex !== -1) {
-        plannedPool.splice(matchIndex, 1); // Borra la cita de la pila (Consumo 1 a 1)
-        return false; // Oculta a Adriana
+      // Si encontramos una cita para este médico...
+      if (matchingVisitIndex !== -1) {
+        usedVisitIndices.add(matchingVisitIndex); // Marcamos la cita como usada (Consumo 1 a 1)
+        return false; // OCULTAMOS al médico de la lista
       }
 
-      return true; 
+      return true; // MOSTRAMOS al médico en la lista
     });
   }, [myFullDocsList, plannedVisits, editingId]);
 
@@ -249,9 +249,14 @@ export default function PlanningPage() {
   const startEdit = (v: any) => {
     setEditingId(v.id)
     const freshDoctor = doctors.find(d => {
-      // También agregamos el salvavidas a la edición
-      if (d.id && v.doctorId && d.id === v.doctorId) return true;
-      return normalizeStr(d.name) === normalizeStr(v.doctorName) && normalizeStr(d.city) === normalizeStr(v.doctorDetails?.city);
+      const dId = String(d.id || '').trim();
+      const vId = String(v.doctorId || '').trim();
+      if (dId && vId && !dId.includes('SIN CODIGO') && !vId.includes('SIN CODIGO') && dId === vId) return true;
+      const dName = normalizeStr(d.name);
+      const vName = normalizeStr(v.doctorName);
+      const dCity = normalizeStr(d.city);
+      const vCity = normalizeStr(v.doctorDetails?.city || v.city || '');
+      return dName === vName && (vCity === '' || dCity === vCity);
     });
     if (freshDoctor) setSelectedDoctor({ ...freshDoctor, name: v.doctorName });
     else setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails });
