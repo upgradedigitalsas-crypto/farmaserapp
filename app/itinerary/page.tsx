@@ -1,10 +1,10 @@
-
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { Clock, Loader2, X, Edit3, Filter, MapPin, CalendarDays, Trash2, User } from 'lucide-react'
+// Añadimos 'Download' a los iconos importados
+import { Clock, Loader2, X, Edit3, Filter, MapPin, CalendarDays, Trash2, User, Download } from 'lucide-react'
 
 // === LÓGICA AUTOMÁTICA DE FECHAS ===
 const now = new Date();
@@ -56,10 +56,8 @@ export default function ItineraryPage() {
   }, [doctors, isAdmin, isManager, userEmail])
 
   const fetchTrips = async () => {
-    // 🛡️ CORRECCIÓN SEGURIDAD: targetEmail inteligente
     const targetEmail = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail
     
-    // 🛡️ CORRECCIÓN VISIBILIDAD: El bloqueo solo aplica si el JEFE no ha seleccionado a nadie.
     if ((isAdmin || isManager) && selectedRep === 'Todos') {
       setTrips([])
       setLoading(false)
@@ -77,7 +75,6 @@ export default function ItineraryPage() {
       const querySnapshot = await getDocs(q)
       const data = querySnapshot.docs.map(d => ({ id: d.id, ...d.data() }))
       
-      // Sincronización con el mes actual
       setTrips(data.filter((t: any) => t.startDate?.includes(filterKey) || t.endDate?.includes(filterKey)))
     } catch (e) { 
       console.error(e) 
@@ -149,6 +146,22 @@ export default function ItineraryPage() {
     })
   }
 
+  // === FUNCIÓN EXPORTAR A EXCEL ===
+  const exportCSV = () => {
+    if (trips.length === 0) return alert('No hay rutas en el itinerario para exportar.');
+    let csv = "Ciudad,Fecha Inicio,Fecha Fin,Hora Inicio,Hora Fin,Observaciones,Visitador\n";
+    trips.forEach(t => {
+      const obs = t.observation ? String(t.observation).replace(/"/g, '""') : '';
+      csv += `"${t.city || ''}",${t.startDate || ''},${t.endDate || ''},${t.startTime || '--:--'},${t.endTime || '--:--'},"${obs}","${t.userEmail || ''}"\n`;
+    });
+    const csvContent = "\uFEFF" + csv;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute("download", `Itinerario_${monthName}_${currentYear}.csv`);
+    link.click();
+  }
+
   const getTripForDay = (day: number) => {
     const currentDayStr = `${currentYear}-${currentMonthStr}-${day.toString().padStart(2, '0')}`
     return trips.find(t => currentDayStr >= t.startDate && currentDayStr <= t.endDate)
@@ -164,23 +177,29 @@ export default function ItineraryPage() {
           <p className="text-gray-500 font-medium text-sm mt-2 capitalize">{monthName} {currentYear} — Hoja de ruta mensual</p>
         </div>
 
+        {/* 🔥 Botón de Descarga integrado al diseño de Gerencia */}
         {(isAdmin || isManager) && (
-          <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 w-full sm:w-auto">
-            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 shrink-0"><Filter size={20}/></div>
-            <div className="pr-3 w-full">
-              <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Auditando Ruta</p>
-              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none pr-4">
-                {isAdmin ? (
-                  <option value="Todos">-- Seleccionar Visitador --</option>
-                ) : (
-                  <>
-                    <option value="Todos">-- Equipo --</option>
-                    <option value={userEmail}>Mi Gestión Propia</option>
-                  </>
-                )}
-                {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
-              </select>
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+            <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 w-full sm:w-auto">
+              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 shrink-0"><Filter size={20}/></div>
+              <div className="pr-3 w-full">
+                <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Auditando Ruta</p>
+                <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none pr-4">
+                  {isAdmin ? (
+                    <option value="Todos">-- Seleccionar Visitador --</option>
+                  ) : (
+                    <>
+                      <option value="Todos">-- Equipo --</option>
+                      <option value={userEmail}>Mi Gestión Propia</option>
+                    </>
+                  )}
+                  {repsList.map((email) => <option key={email} value={email}>{email}</option>)}
+                </select>
+              </div>
             </div>
+            <button onClick={exportCSV} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-6 py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-100 h-[58px]">
+              <Download size={16}/> Descargar Excel
+            </button>
           </div>
         )}
       </header>
