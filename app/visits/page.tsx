@@ -11,7 +11,7 @@ const currentMonthStr = (now.getMonth() + 1).toString().padStart(2, '0');
 const currentYear = now.getFullYear();
 const monthName = now.toLocaleString('es-ES', { month: 'long' });
 const daysInMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
-const filterKey = `${currentYear}-${currentMonthStr}`; // Ej: "2026-05"
+const filterKey = `${currentYear}-${currentMonthStr}`; 
 
 const getFingerprintLocation = () => {
   return new Promise((resolve) => {
@@ -34,6 +34,7 @@ const normalizeStr = (str: any) => {
   return String(str)
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, ' ') // <-- Blindaje extra para espacios dobles
     .toLowerCase()
     .trim();
 };
@@ -70,7 +71,6 @@ export default function PlanningPage() {
       setDoctors(Array.isArray(dataDocs) ? dataDocs : [])
       
       const vRef = collection(db, 'planned_visits')
-      
       let q;
       if (isAdmin && selectedRep === 'Todos') {
          q = query(vRef);
@@ -96,11 +96,7 @@ export default function PlanningPage() {
   useEffect(() => { fetchData() }, [user, selectedRep])
 
   useEffect(() => {
-    if (!selectedDoctor) {
-      setLastComment(null);
-      return;
-    }
-
+    if (!selectedDoctor) { setLastComment(null); return; }
     const fetchLastComment = async () => {
       try {
         const emailToSearch = (isAdmin || isManager) && selectedRep !== 'Todos' ? selectedRep : userEmail;
@@ -115,17 +111,10 @@ export default function PlanningPage() {
               const dateB = b.reportedAt?.toDate ? b.reportedAt.toDate() : new Date(b.reportedAt);
               return dateB - dateA;
             });
-
-          if (doctorReports.length > 0) {
-            setLastComment(doctorReports[0].observations);
-          } else {
-            setLastComment(null);
-          }
+          if (doctorReports.length > 0) setLastComment(doctorReports[0].observations);
+          else setLastComment(null);
         }
-      } catch (e) {
-        console.error("Error buscando último seguimiento:", e);
-        setLastComment(null);
-      }
+      } catch (e) { setLastComment(null); }
     };
     fetchLastComment();
   }, [selectedDoctor, user, selectedRep, isAdmin, isManager, userEmail]);
@@ -150,7 +139,7 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
-  // 🔥 LÓGICA DE CONSUMO EXACTO (1 CITA = 1 OCULTO)
+  // 🔥 LA SOLUCIÓN FINAL: Combinar "Consumo Exacto" con "Salvavidas de Nombre"
   const availableDocs = useMemo(() => {
     const plannedPool = [...plannedVisits];
 
@@ -169,21 +158,29 @@ export default function PlanningPage() {
         const visitIdStr = v.doctorId ? String(v.doctorId).trim() : '';
         const isVisitIdReal = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
 
-        if (isDocIdReal && isVisitIdReal) {
-          return docIdStr === visitIdStr;
+        // Intento 1: Cruce estricto por ID (si ambos existen)
+        if (isDocIdReal && isVisitIdReal && docIdStr === visitIdStr) {
+          return true; 
         }
         
+        // Intento 2 (El Salvavidas): Si los IDs no coincidieron (porque Pablo los actualizó recientemente)
+        // o no tienen, cruzamos por el Nombre y la Ciudad exactos.
         const visitName = normalizeStr(v.doctorName);
         const visitCity = normalizeStr(v.doctorDetails?.city);
-        return docName === visitName && docCity === visitCity;
+        
+        if (docName === visitName && docCity === visitCity) {
+          return true;
+        }
+
+        return false;
       });
 
       if (matchIndex !== -1) {
-        plannedPool.splice(matchIndex, 1); // Borramos la cita de la pila
-        return false; // Ocultamos al médico
+        plannedPool.splice(matchIndex, 1); // Borra la cita de la pila (Consumo 1 a 1)
+        return false; // Oculta a Adriana
       }
 
-      return true; // Si no hay match en la pila, se muestra
+      return true; 
     });
   }, [myFullDocsList, plannedVisits, editingId]);
 
@@ -196,7 +193,6 @@ export default function PlanningPage() {
     if (!searchTerm.trim() && !filterCity && !filterSpecialty && !filterCategory) return [];
     
     let filtered = availableDocs; 
-    
     if (filterCity) filtered = filtered.filter(d => d.city === filterCity);
     if (filterSpecialty) filtered = filtered.filter(d => d.specialty === filterSpecialty);
     if (filterCategory) filtered = filtered.filter(d => d.category === filterCategory);
@@ -253,10 +249,9 @@ export default function PlanningPage() {
   const startEdit = (v: any) => {
     setEditingId(v.id)
     const freshDoctor = doctors.find(d => {
-      const isGenericId = !d.id || d.id.includes('SIN CODIGO');
-      if (!isGenericId) return d.id === v.doctorId;
-      return normalizeStr(d.name) === normalizeStr(v.doctorName) && 
-             normalizeStr(d.city) === normalizeStr(v.doctorDetails?.city);
+      // También agregamos el salvavidas a la edición
+      if (d.id && v.doctorId && d.id === v.doctorId) return true;
+      return normalizeStr(d.name) === normalizeStr(v.doctorName) && normalizeStr(d.city) === normalizeStr(v.doctorDetails?.city);
     });
     if (freshDoctor) setSelectedDoctor({ ...freshDoctor, name: v.doctorName });
     else setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails });
