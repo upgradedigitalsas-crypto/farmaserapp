@@ -150,44 +150,40 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
-  // 🔥 LÓGICA REESCRITA PARA PROTEGER SUCURSALES Y NOMBRES DUPLICADOS
+  // 🔥 LÓGICA DE CONSUMO EXACTO (1 CITA = 1 OCULTO)
   const availableDocs = useMemo(() => {
+    const plannedPool = [...plannedVisits];
+
+    if (editingId) {
+      const editIndex = plannedPool.findIndex(v => v.id === editingId);
+      if (editIndex !== -1) plannedPool.splice(editIndex, 1);
+    }
+
     return myFullDocsList.filter(doc => {
-      if (editingId) {
-        const currentEdit = plannedVisits.find(v => v.id === editingId);
-        if (currentEdit && (currentEdit.doctorId === doc.id || normalizeStr(currentEdit.doctorName) === normalizeStr(doc.name))) {
-          return true;
-        }
-      }
-      
-      const tieneCitaEsteMes = plannedVisits.some(v => {
-        const docIdStr = doc.id ? String(doc.id).trim() : '';
+      const docIdStr = doc.id ? String(doc.id).trim() : '';
+      const isDocIdReal = docIdStr !== '' && !docIdStr.includes('SIN CODIGO');
+      const docName = normalizeStr(doc.name);
+      const docCity = normalizeStr(doc.city);
+
+      const matchIndex = plannedPool.findIndex(v => {
         const visitIdStr = v.doctorId ? String(v.doctorId).trim() : '';
-        
-        const isDocIdReal = docIdStr !== '' && !docIdStr.includes('SIN CODIGO');
         const isVisitIdReal = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
 
-        // REGLA 1: Si AMBOS tienen ID real, solo se oculta si el ID es exactamente el mismo.
-        // Si no es el mismo, RETORNA FALSE DE INMEDIATO para no cruzar nombres y salvar las sucursales.
         if (isDocIdReal && isVisitIdReal) {
           return docIdStr === visitIdStr;
         }
         
-        // REGLA 2: Solo si uno de los dos NO tiene código, cruzamos por Nombre y Ciudad
-        const docName = normalizeStr(doc.name);
         const visitName = normalizeStr(v.doctorName);
-        const docCity = normalizeStr(doc.city);
         const visitCity = normalizeStr(v.doctorDetails?.city);
-
-        // Validación extra de seguridad: Nombres no pueden estar vacíos
-        if (docName && visitName && docName === visitName && docCity === visitCity) {
-          return true;
-        }
-        
-        return false;
+        return docName === visitName && docCity === visitCity;
       });
-      
-      return !tieneCitaEsteMes;
+
+      if (matchIndex !== -1) {
+        plannedPool.splice(matchIndex, 1); // Borramos la cita de la pila
+        return false; // Ocultamos al médico
+      }
+
+      return true; // Si no hay match en la pila, se muestra
     });
   }, [myFullDocsList, plannedVisits, editingId]);
 
@@ -291,6 +287,8 @@ export default function PlanningPage() {
   }
 
   const days = Array.from({length: daysInMonth}, (_, i) => i + 1)
+  
+  const selectedIndex = selectedDoctor ? availableDocs.indexOf(selectedDoctor) : -1;
 
   return (
     <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
@@ -331,10 +329,11 @@ export default function PlanningPage() {
                 <select 
                   className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" 
                   disabled={loading} 
-                  value={selectedDoctor?.id || ""} 
+                  value={selectedIndex >= 0 ? selectedIndex : ""} 
                   onChange={(e) => {
-                    const docFound = availableDocs.find((d:any) => d.id === e.target.value)
-                    if (docFound) { setSelectedDoctor(docFound); }
+                    const val = e.target.value;
+                    if (val !== "") setSelectedDoctor(availableDocs[Number(val)]);
+                    else setSelectedDoctor(null);
                   }}
                 >
                   {loading ? (
@@ -344,8 +343,8 @@ export default function PlanningPage() {
                   ) : (
                     <>
                       <option value="">-- Médicos Pendientes por Planear --</option>
-                      {availableDocs.map((docItem:any) => (
-                        <option key={docItem.id} value={docItem.id}>
+                      {availableDocs.map((docItem:any, idx: number) => (
+                        <option key={`opt-${idx}`} value={idx}>
                           {docItem.name} — {docItem.city}
                         </option>
                       ))}
@@ -387,8 +386,8 @@ export default function PlanningPage() {
 
                 {myDocsFiltered.length > 0 && !selectedDoctor && (
                   <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                    {myDocsFiltered.map((docItem:any) => (
-                      <button key={docItem.id} onClick={() => { setSelectedDoctor(docItem); clearFilters() }} className="w-full text-left p-4 bg-white border shadow-sm hover:border-blue-500 rounded-2xl font-bold uppercase text-xs transition-all group">
+                    {myDocsFiltered.map((docItem:any, idx: number) => (
+                      <button key={`btn-${idx}`} onClick={() => { setSelectedDoctor(docItem); clearFilters() }} className="w-full text-left p-4 bg-white border shadow-sm hover:border-blue-500 rounded-2xl font-bold uppercase text-xs transition-all group">
                         <div className="flex justify-between items-center">
                           <span className="group-hover:text-blue-600 transition-colors">{docItem.name}</span>
                           {docItem.category && <span className="bg-purple-100 text-purple-700 text-[9px] px-2 py-0.5 rounded-md">CAT: {docItem.category}</span>}
@@ -466,9 +465,9 @@ export default function PlanningPage() {
                 <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visitsOnDay.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
                   <span className={`text-[11px] font-black mb-2 ${visitsOnDay.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / {currentMonthStr}</span>
                   <div className="space-y-1.5 overflow-y-auto custom-scrollbar pr-1 flex-1">
-                    {visitsOnDay.map((v: any) => (
+                    {visitsOnDay.map((v: any, idx: number) => (
                       <button 
-                        key={v.id} 
+                        key={`v-${idx}`} 
                         onClick={() => {
                           if (isAdmin || userEmail === v.userEmail) {
                             startEdit(v)
