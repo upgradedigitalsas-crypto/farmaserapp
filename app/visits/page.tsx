@@ -140,38 +140,12 @@ export default function PlanningPage() {
   }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
   const availableDocs = useMemo(() => {
-    const plannedPool = plannedVisits.filter(v => v.id !== editingId);
-    return myFullDocsList.filter(doc => {
-      const docIdStr = doc.id ? String(doc.id).trim() : '';
-      const isDocIdReal = docIdStr !== '' && !docIdStr.includes('SIN CODIGO');
-      const docName = normalizeStr(doc.name);
-      const docCity = normalizeStr(doc.city);
-
-      const matchIndex = plannedPool.findIndex(v => {
-        const visitIdStr = v.doctorId ? String(v.doctorId).trim() : '';
-        const isVisitIdReal = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
-
-        // REGLA 1: Si ambos tienen ID real, el ID es definitivo
-        if (isDocIdReal && isVisitIdReal) {
-          return docIdStr === visitIdStr;
-        }
-
-        // REGLA 2: Al menos uno sin ID real → cruce por Nombre y Ciudad
-        const visitName = normalizeStr(v.doctorName);
-        if (docName === visitName) {
-          const visitCity = normalizeStr(v.doctorDetails?.city || v.city || '');
-          if (visitCity === '' || docCity === visitCity) return true;
-        }
-
-        return false;
-      });
-
-      if (matchIndex !== -1) {
-        plannedPool.splice(matchIndex, 1);
-        return false;
-      }
-      return true;
-    });
+    const planned = new Set(
+      plannedVisits
+        .filter(v => v.id !== editingId)
+        .map(v => normalizeStr(v.doctorName))
+    );
+    return myFullDocsList.filter(doc => !planned.has(normalizeStr(doc.name)));
   }, [myFullDocsList, plannedVisits, editingId]);
 
   const citiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.city).filter(Boolean))).sort(), [myFullDocsList])
