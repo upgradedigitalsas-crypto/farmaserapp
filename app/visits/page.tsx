@@ -151,10 +151,12 @@ export default function PlanningPage() {
         const visitIdStr = v.doctorId ? String(v.doctorId).trim() : '';
         const isVisitIdReal = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
 
-        // REGLA 1: Cruce por ID exacto
-        if (isDocIdReal && isVisitIdReal && docIdStr === visitIdStr) return true;
+        // REGLA 1: Si ambos tienen ID real, el ID es definitivo
+        if (isDocIdReal && isVisitIdReal) {
+          return docIdStr === visitIdStr;
+        }
 
-        // REGLA 2: Cruce por Nombre y Ciudad
+        // REGLA 2: Al menos uno sin ID real → cruce por Nombre y Ciudad
         const visitName = normalizeStr(v.doctorName);
         if (docName === visitName) {
           const visitCity = normalizeStr(v.doctorDetails?.city || v.city || '');
