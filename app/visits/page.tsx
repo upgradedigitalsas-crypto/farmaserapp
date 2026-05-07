@@ -139,48 +139,36 @@ export default function PlanningPage() {
     return doctors.filter((d: any) => String(d.assignedTo || '').toLowerCase().trim() === emailToFilter).sort((a: any, b: any) => a.name.localeCompare(b.name));
   }, [doctors, isAdmin, isManager, userEmail, selectedRep])
 
-  // 🔥 LÓGICA DE FILTRADO PURA Y BLINDADA
   const availableDocs = useMemo(() => {
-    const usedVisitIndices = new Set(); // Guardamos las citas que ya emparejamos para no repetir
-
+    const plannedPool = plannedVisits.filter(v => v.id !== editingId);
     return myFullDocsList.filter(doc => {
       const docIdStr = doc.id ? String(doc.id).trim() : '';
-      const hasRealDocId = docIdStr !== '' && !docIdStr.includes('SIN CODIGO');
+      const isDocIdReal = docIdStr !== '' && !docIdStr.includes('SIN CODIGO');
       const docName = normalizeStr(doc.name);
       const docCity = normalizeStr(doc.city);
 
-      const matchingVisitIndex = plannedVisits.findIndex((v, index) => {
-        if (v.id === editingId) return false; // Si estamos editando esta cita, la ignoramos
-        if (usedVisitIndices.has(index)) return false; // Si esta cita ya ocultó a un médico, la ignoramos
-
+      const matchIndex = plannedPool.findIndex(v => {
         const visitIdStr = v.doctorId ? String(v.doctorId).trim() : '';
-        const hasRealVisitId = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
+        const isVisitIdReal = visitIdStr !== '' && !visitIdStr.includes('SIN CODIGO');
 
         // REGLA 1: Cruce por ID exacto
-        if (hasRealDocId && hasRealVisitId && docIdStr === visitIdStr) {
-          return true;
-        }
+        if (isDocIdReal && isVisitIdReal && docIdStr === visitIdStr) return true;
 
-        // REGLA 2: El Salvavidas (Cruce por Nombre y Ciudad)
+        // REGLA 2: Cruce por Nombre y Ciudad
         const visitName = normalizeStr(v.doctorName);
         if (docName === visitName) {
           const visitCity = normalizeStr(v.doctorDetails?.city || v.city || '');
-          // Si coinciden en ciudad, o si la cita antigua no tiene ciudad guardada
-          if (visitCity === '' || docCity === visitCity) {
-            return true;
-          }
+          if (visitCity === '' || docCity === visitCity) return true;
         }
 
-        return false; // No hay coincidencia
+        return false;
       });
 
-      // Si encontramos una cita para este médico...
-      if (matchingVisitIndex !== -1) {
-        usedVisitIndices.add(matchingVisitIndex); // Marcamos la cita como usada (Consumo 1 a 1)
-        return false; // OCULTAMOS al médico de la lista
+      if (matchIndex !== -1) {
+        plannedPool.splice(matchIndex, 1);
+        return false;
       }
-
-      return true; // MOSTRAMOS al médico en la lista
+      return true;
     });
   }, [myFullDocsList, plannedVisits, editingId]);
 
