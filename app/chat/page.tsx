@@ -281,8 +281,8 @@ export default function ChatPage() {
       {/* ── ÁREA PRINCIPAL ────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F8FAFC]">
 
-        {/* Tabs de canal (mobile) */}
-        <div className="md:hidden bg-[#0F172A] pl-14 pr-3 pt-14 pb-1">
+        {/* Tabs de canal (mobile) — shrink-0 evita que flex lo comprima */}
+        <div className="md:hidden shrink-0 bg-[#0F172A] pt-14 pb-2 px-3">
           <div className="flex gap-1 overflow-x-auto" style={{scrollbarWidth:'none'}}>
             {accessibleChannels.map(ch => (
               <button key={ch} onClick={() => setActiveChannel(ch)}
