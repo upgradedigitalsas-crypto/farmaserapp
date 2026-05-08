@@ -3,10 +3,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
 // Aquí nos aseguramos de importar Sparkles para el icono de Novedades
-import { 
-  Sparkles, LayoutDashboard, Building2, ClipboardList, 
-  CalendarDays, BarChart3, BookOpen, Lock, UserCircle, 
-  LogOut, Menu, X 
+import {
+  Sparkles, LayoutDashboard, Building2, ClipboardList,
+  CalendarDays, BarChart3, BookOpen, Lock, UserCircle,
+  LogOut, Menu, X, MessageSquare
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -22,6 +22,7 @@ export default function Sidebar() {
     { name: 'Centros Médicos', icon: Building2, path: '/medical-centers' },
     { name: 'Visitas', icon: ClipboardList, path: '/visits' },
     { name: 'Itinerario', icon: CalendarDays, path: '/itinerary' },
+    { name: 'Chat Interno', icon: MessageSquare, path: '/chat' },
     { name: 'Reportes', icon: BarChart3, path: '/reports' },
     { name: 'Labores Visitador', icon: BookOpen, path: '/labores' },
     { name: 'E-Learning', icon: Lock, path: '/elearning' },
