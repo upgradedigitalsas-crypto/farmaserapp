@@ -238,9 +238,9 @@ export default function PlanningPage() {
 
   const exportCSV = () => {
     if (plannedVisits.length === 0) return alert('No hay citas agendadas para exportar.');
-    let csv = "Fecha,Visitador,Medico,Especialidad,Ciudad,Estado,Hora Inicio,Hora Fin\n";
+    let csv = "Fecha,Visitador,Medico,Especialidad,Ciudad,Direccion,Telefono,Estado,Hora Inicio,Hora Fin\n";
     plannedVisits.forEach(v => {
-      csv += `${v.visitDate || ''},${v.userEmail || ''},"${v.doctorName || ''}","${v.doctorDetails?.specialty || ''}","${v.doctorDetails?.city || ''}",${v.status || ''},${v.startTime || '--:--'},${v.endTime || '--:--'}\n`;
+      csv += `${v.visitDate || ''},${v.userEmail || ''},"${v.doctorName || ''}","${v.doctorDetails?.specialty || ''}","${v.doctorDetails?.city || ''}","${v.doctorDetails?.address || ''}","${v.doctorDetails?.phone || ''}",${v.status || ''},${v.startTime || '--:--'},${v.endTime || '--:--'}\n`;
     });
     const csvContent = "\uFEFF" + csv;
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

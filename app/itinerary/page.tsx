@@ -147,10 +147,27 @@ export default function ItineraryPage() {
   }
 
   // === FUNCIÓN EXPORTAR A EXCEL ===
-  const exportCSV = () => {
-    if (trips.length === 0) return alert('No hay rutas en el itinerario para exportar.');
+  const exportCSV = async () => {
+    let dataToExport = trips;
+
+    if ((isAdmin || isManager) && selectedRep === 'Todos') {
+      try {
+        const snap = await getDocs(collection(db, 'itineraries'));
+        let all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (isManager) {
+          const myTeam = TEAM_MAPPING[userEmail] || [];
+          all = all.filter((t: any) => myTeam.includes(String(t.userEmail || '').toLowerCase().trim()));
+        }
+        dataToExport = all.filter((t: any) => t.startDate?.includes(filterKey) || t.endDate?.includes(filterKey));
+      } catch (e) {
+        alert('Error al obtener datos');
+        return;
+      }
+    }
+
+    if (dataToExport.length === 0) return alert('No hay rutas en el itinerario para exportar.');
     let csv = "Ciudad,Fecha Inicio,Fecha Fin,Hora Inicio,Hora Fin,Observaciones,Visitador\n";
-    trips.forEach(t => {
+    dataToExport.forEach((t: any) => {
       const obs = t.observation ? String(t.observation).replace(/"/g, '""') : '';
       csv += `"${t.city || ''}",${t.startDate || ''},${t.endDate || ''},${t.startTime || '--:--'},${t.endTime || '--:--'},"${obs}","${t.userEmail || ''}"\n`;
     });
