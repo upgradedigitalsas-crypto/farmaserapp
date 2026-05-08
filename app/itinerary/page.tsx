@@ -302,9 +302,9 @@ export default function ItineraryPage() {
               {days.map(d => {
                 const trip = getTripForDay(d)
                 return (
-                  <div 
-                    key={d} 
-                    className={`aspect-square md:aspect-auto md:min-h-[120px] p-3 rounded-[32px] border-2 transition-all flex flex-col relative overflow-hidden ${
+                  <div
+                    key={d}
+                    className={`min-h-[88px] md:min-h-[120px] p-2.5 md:p-3 rounded-[28px] border-2 transition-all flex flex-col relative overflow-hidden ${
                       trip ? 'border-blue-600 bg-white shadow-xl scale-[1.02] z-10' : 'bg-white border-gray-100 shadow-sm'
                     }`}
                   >
@@ -326,8 +326,8 @@ export default function ItineraryPage() {
                         
                         {/* Horario con Icono */}
                         <div className="flex items-center gap-1 text-gray-400">
-                          <Clock size={10} className="text-blue-500" />
-                          <span className="text-[8px] font-black">
+                          <Clock size={10} className="text-blue-500 shrink-0" />
+                          <span className="text-[8px] font-black whitespace-nowrap">
                             {trip.startTime} - {trip.endTime}
                           </span>
                         </div>
