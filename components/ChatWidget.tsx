@@ -67,13 +67,15 @@ export default function ChatWidget() {
   const accessibleChannels = useMemo(() => {
     if (isAdmin) return Object.keys(CHANNEL_LABELS)
     const channels = ['general']
-    const direct = Object.entries(CHANNEL_MANAGER).find(([, mgr]) => mgr === userEmail)
-    if (direct) { channels.push(direct[0]) }
-    else {
-      for (const [mgr] of Object.entries(CHANNEL_MANAGER)) {
-        if ((TEAM_MAPPING[mgr] || []).includes(userEmail)) {
-          const e = Object.entries(CHANNEL_MANAGER).find(([, m]) => m === mgr)
-          if (e) channels.push(e[0])
+    // ¿Es gerente? → busca su canal directo
+    const direct = Object.entries(CHANNEL_MANAGER).find(([, managerEmail]) => managerEmail === userEmail)
+    if (direct) {
+      channels.push(direct[0])
+    } else {
+      // ¿Es visitador? → busca en qué equipo está usando el email del gerente como clave
+      for (const [channelKey, managerEmail] of Object.entries(CHANNEL_MANAGER)) {
+        if ((TEAM_MAPPING[managerEmail] || []).includes(userEmail)) {
+          channels.push(channelKey)
           break
         }
       }
