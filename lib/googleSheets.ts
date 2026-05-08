@@ -29,8 +29,8 @@ export async function getDoctorsFromSheet() {
     if (!rows) return []
 
     return rows.map((row) => ({
-      id: row[0] || Math.random().toString(), 
-      visitadorId: row[0] || '',             
+      id: `${(row[11]||'').trim()}_${(row[2]||'').trim()}_${(row[6]||'').trim()}`.toLowerCase().replace(/\s+/g,'_') || Math.random().toString(),
+      visitadorId: row[0] || '',
       name: row[2] || '',                    
       address: row[4] || '',  // Columna E (Dirección)             
       phone: row[5] || '',    // <-- ¡AQUÍ ESTÁ LA MAGIA! COLUMNA F (Teléfono)

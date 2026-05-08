@@ -213,9 +213,6 @@ export default function PlanningPage() {
   const startEdit = (v: any) => {
     setEditingId(v.id)
     const freshDoctor = doctors.find(d => {
-      const dId = String(d.id || '').trim();
-      const vId = String(v.doctorId || '').trim();
-      if (dId && vId && !dId.includes('SIN CODIGO') && !vId.includes('SIN CODIGO') && dId === vId) return true;
       const dName = normalizeStr(d.name);
       const vName = normalizeStr(v.doctorName);
       const dCity = normalizeStr(d.city);
