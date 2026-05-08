@@ -28,7 +28,7 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen w-full bg-gray-50 overflow-hidden relative">
+    <div className={`flex h-screen w-full overflow-hidden relative ${pathname === '/chat' ? 'bg-[#0F172A]' : 'bg-gray-50'}`}>
       <button 
         onClick={() => setIsMobileMenuOpen(true)}
         className="lg:hidden fixed top-4 left-4 z-40 p-2 bg-slate-900 text-white rounded-lg shadow-lg"

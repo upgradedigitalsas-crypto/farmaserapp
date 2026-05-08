@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, orderBy, onSnapshot, Timestamp, limit } from 'firebase/firestore'
-import { MessageSquare, X, Send, Hash, Loader2, Smile, ImageIcon } from 'lucide-react'
+import { MessageSquare, X, Send, Hash, Loader2, Smile, ImageIcon, Globe, Shield, Users } from 'lucide-react'
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { storage } from '@/lib/firebase'
@@ -24,6 +24,12 @@ const CHANNEL_LABELS: Record<string, string> = {
 }
 const ADMIN_EMAIL = 'entrenamientofarmaser@gmail.com'
 const MANAGER_EMAILS = Object.values(CHANNEL_MANAGER)
+
+function ChannelIcon({ channel, size = 10, className = '' }: { channel: string; size?: number; className?: string }) {
+  if (channel === 'general')  return <Globe  size={size} className={className} />
+  if (channel === 'gerentes') return <Shield size={size} className={className} />
+  return                              <Users  size={size} className={className} />
+}
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function nameFromEmail(email: string): string {
@@ -346,7 +352,7 @@ export default function ChatWidget() {
                   className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
                     activeChannel === ch ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-white/10 hover:text-white'
                   }`}>
-                  <Hash size={10} />{CHANNEL_LABELS[ch]}
+                  <ChannelIcon channel={ch} size={10} />{CHANNEL_LABELS[ch]}
                 </button>
               ))}
             </div>
@@ -386,7 +392,7 @@ export default function ChatWidget() {
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   activeChannel === ch ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-white/10 hover:text-white'
                 }`}>
-                <Hash size={11} />{CHANNEL_LABELS[ch]}
+                <ChannelIcon channel={ch} size={11} />{CHANNEL_LABELS[ch]}
               </button>
             ))}
           </div>

@@ -4,7 +4,7 @@ import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db, storage } from '@/lib/firebase'
 import { collection, addDoc, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { Send, Hash, Loader2, Users, X, Smile, ImageIcon } from 'lucide-react'
+import { Send, Hash, Loader2, Users, X, Smile, ImageIcon, Globe, Shield } from 'lucide-react'
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react'
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
@@ -21,6 +21,12 @@ const CHANNEL_LABELS: Record<string, string> = {
   'equipo-yuliana': 'Equipo Yuliana',
 }
 const MANAGER_EMAILS = Object.values(CHANNEL_MANAGER)
+
+function ChannelIcon({ channel, size = 13, className = '' }: { channel: string; size?: number; className?: string }) {
+  if (channel === 'general')  return <Globe   size={size} className={className} />
+  if (channel === 'gerentes') return <Shield  size={size} className={className} />
+  return                              <Users   size={size} className={className} />
+}
 const ADMIN_EMAIL = 'entrenamientofarmaser@gmail.com'
 const ALL_MEMBERS = [ADMIN_EMAIL, ...Object.values(TEAM_MAPPING).flat()]
   .filter((v, i, a) => a.indexOf(v) === i)
@@ -218,7 +224,7 @@ export default function ChatPage() {
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left ${
                   activeChannel === ch ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
                 }`}>
-                <Hash size={13} className="shrink-0" />
+                <ChannelIcon channel={ch} size={13} className="shrink-0" />
                 <span className="truncate flex-1">{CHANNEL_LABELS[ch]}</span>
                 <span className="text-[9px] opacity-50">{CHANNEL_MEMBERS[ch]?.length}</span>
               </button>
@@ -271,7 +277,7 @@ export default function ChatPage() {
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-t-xl text-xs font-bold transition-all ${
                   activeChannel === ch ? 'bg-[#F8FAFC] text-gray-900' : 'text-gray-400 hover:text-white'
                 }`}>
-                <Hash size={11} />{CHANNEL_LABELS[ch]}
+                <ChannelIcon channel={ch} size={11} />{CHANNEL_LABELS[ch]}
               </button>
             ))}
           </div>
@@ -281,7 +287,7 @@ export default function ChatPage() {
         <div className="bg-white border-b border-gray-100 px-4 py-3 shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
-              <Hash size={16} className="text-blue-600" />
+              <ChannelIcon channel={activeChannel} size={16} className="text-blue-600" />
             </div>
             <div className="flex-1 min-w-0">
               <h1 className="font-black text-gray-900 text-sm">{CHANNEL_LABELS[activeChannel]}</h1>
