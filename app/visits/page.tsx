@@ -152,6 +152,14 @@ export default function PlanningPage() {
   const specialtiesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.specialty).filter(Boolean))).sort(), [myFullDocsList])
   const categoriesList = useMemo(() => Array.from(new Set(myFullDocsList.map(d => d.category).filter(Boolean))).sort(), [myFullDocsList])
 
+  // Mapa nombre→ciudad desde Google Sheets (fuente de verdad) para mostrar ciudad correcta
+  // aunque en Firestore esté guardada una ciudad incorrecta por el bug anterior
+  const doctorCityMap = useMemo(() => {
+    const map = new Map<string, string>();
+    doctors.forEach(d => { if (d.name) map.set(normalizeStr(d.name), d.city || '') });
+    return map;
+  }, [doctors])
+
   const myDocsFiltered = useMemo(() => {
     if (selectedDoctor) return [];
     if (!searchTerm.trim() && !filterCity && !filterSpecialty && !filterCategory) return [];
@@ -212,13 +220,18 @@ export default function PlanningPage() {
 
   const startEdit = (v: any) => {
     setEditingId(v.id)
-    const freshDoctor = doctors.find(d => {
+    const vName = normalizeStr(v.doctorName);
+    const vCity = normalizeStr(v.doctorDetails?.city || v.city || '');
+    // Intento 1: nombre + ciudad (ambos coinciden)
+    let freshDoctor = doctors.find(d => {
       const dName = normalizeStr(d.name);
-      const vName = normalizeStr(v.doctorName);
       const dCity = normalizeStr(d.city);
-      const vCity = normalizeStr(v.doctorDetails?.city || v.city || '');
       return dName === vName && (vCity === '' || dCity === vCity);
     });
+    // Intento 2: solo nombre (la ciudad guardada puede estar incorrecta por el bug anterior)
+    if (!freshDoctor) {
+      freshDoctor = myFullDocsList.find(d => normalizeStr(d.name) === vName);
+    }
     if (freshDoctor) setSelectedDoctor({ ...freshDoctor, name: v.doctorName });
     else setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails });
     setVisitDate(v.visitDate); setStartTime(v.startTime || ''); setEndTime(v.endTime || ''); setStatus(v.status)
@@ -443,7 +456,7 @@ export default function PlanningPage() {
                         </p>
                         <div className="flex justify-between items-center mt-2">
                           <p className="text-[8px] font-bold text-blue-100 uppercase italic truncate max-w-[70%]">
-                            {v.doctorDetails?.city || '---'}
+                            {doctorCityMap.get(normalizeStr(v.doctorName)) || v.doctorDetails?.city || '---'}
                           </p>
                           <span className="text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase bg-white/20 text-white border border-white/10">
                             {v.status}
