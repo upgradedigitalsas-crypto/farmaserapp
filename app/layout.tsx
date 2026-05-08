@@ -53,7 +53,7 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
       )}
 
       <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-        <div className="flex-1 overflow-y-auto w-full">
+        <div className={`flex-1 w-full ${pathname === '/chat' ? 'overflow-hidden h-full' : 'overflow-y-auto'}`}>
           {children}
         </div>
       </main>
