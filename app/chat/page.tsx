@@ -91,15 +91,35 @@ export default function ChatPage() {
     return channels
   }, [userEmail, isAdmin])
 
-  // ── Firestore listener ───────────────────────────────────────────────────
+  // ── Firestore listener (con fallback si falta el índice compuesto) ──────
   useEffect(() => {
     setLoading(true)
-    const q = query(collection(db, 'chat_messages'), where('channel','==',activeChannel), orderBy('createdAt','asc'))
-    const unsub = onSnapshot(q, snap => {
-      setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setLoading(false)
-    })
-    return () => unsub()
+    let fallbackUnsub: (() => void) | null = null
+
+    const q = query(
+      collection(db, 'chat_messages'),
+      where('channel', '==', activeChannel),
+      orderBy('createdAt', 'asc')
+    )
+    const unsub = onSnapshot(
+      q,
+      snap => {
+        setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setLoading(false)
+      },
+      _err => {
+        // Índice compuesto aún no creado → fallback sin orderBy + sort cliente
+        const q2 = query(collection(db, 'chat_messages'), where('channel', '==', activeChannel))
+        fallbackUnsub = onSnapshot(q2, snap2 => {
+          const msgs = snap2.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (a.createdAt?.toDate?.()?.getTime() || 0) - (b.createdAt?.toDate?.()?.getTime() || 0))
+          setMessages(msgs)
+          setLoading(false)
+        })
+      }
+    )
+    return () => { unsub(); fallbackUnsub?.() }
   }, [activeChannel])
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])

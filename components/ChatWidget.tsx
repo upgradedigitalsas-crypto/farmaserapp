@@ -75,45 +75,65 @@ export default function ChatWidget() {
     return channels
   }, [userEmail, isAdmin])
 
-  // ── Mensajes cuando está abierto ─────────────────────────────────────────
+  // ── Mensajes cuando está abierto (con fallback sin índice) ──────────────
   useEffect(() => {
     if (!isOpen || !user) return
     setLoading(true)
+    let fallbackUnsub: (() => void) | null = null
+
     const q = query(
       collection(db, 'chat_messages'),
-      where('channel','==',activeChannel),
-      orderBy('createdAt','asc'),
+      where('channel', '==', activeChannel),
+      orderBy('createdAt', 'asc'),
       limit(60)
     )
-    const unsub = onSnapshot(q, snap => {
-      setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-      setLoading(false)
-      localStorage.setItem(`chat_seen_${activeChannel}`, Date.now().toString())
-      if (activeChannel === 'general') setUnread(0)
-    })
-    return () => unsub()
+    const unsub = onSnapshot(
+      q,
+      snap => {
+        setMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setLoading(false)
+        localStorage.setItem(`chat_seen_${activeChannel}`, Date.now().toString())
+        if (activeChannel === 'general') setUnread(0)
+      },
+      _err => {
+        const q2 = query(collection(db, 'chat_messages'), where('channel', '==', activeChannel), limit(60))
+        fallbackUnsub = onSnapshot(q2, snap2 => {
+          const msgs = snap2.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (a.createdAt?.toDate?.()?.getTime() || 0) - (b.createdAt?.toDate?.()?.getTime() || 0))
+          setMessages(msgs)
+          setLoading(false)
+          localStorage.setItem(`chat_seen_${activeChannel}`, Date.now().toString())
+          if (activeChannel === 'general') setUnread(0)
+        })
+      }
+    )
+    return () => { unsub(); fallbackUnsub?.() }
   }, [isOpen, activeChannel, user])
 
-  // ── Contador de no leídos (canal general) cuando cerrado ─────────────────
+  // ── Contador de no leídos cuando cerrado (con fallback) ─────────────────
   useEffect(() => {
     if (isOpen || !user) return
-    const q = query(
-      collection(db, 'chat_messages'),
-      where('channel','==','general'),
-      orderBy('createdAt','asc'),
-      limit(20)
-    )
-    const unsub = onSnapshot(q, snap => {
+    let fallbackUnsub: (() => void) | null = null
+
+    const countUnread = (docs: any[]) => {
       const lastSeen = parseInt(localStorage.getItem('chat_seen_general') || '0')
-      const count = snap.docs.filter(d => {
-        const data = d.data()
-        if (data.userEmail === userEmail) return false
-        const ts = data.createdAt?.toDate?.()?.getTime() || 0
-        return ts > lastSeen
+      return docs.filter(d => {
+        if (d.userEmail === userEmail) return false
+        return (d.createdAt?.toDate?.()?.getTime() || 0) > lastSeen
       }).length
-      setUnread(count)
-    })
-    return () => unsub()
+    }
+
+    const q = query(collection(db, 'chat_messages'), where('channel','==','general'), orderBy('createdAt','asc'), limit(20))
+    const unsub = onSnapshot(
+      q,
+      snap => setUnread(countUnread(snap.docs.map(d => d.data()))),
+      _err => {
+        const q2 = query(collection(db, 'chat_messages'), where('channel','==','general'), limit(20))
+        fallbackUnsub = onSnapshot(q2, snap2 => setUnread(countUnread(snap2.docs.map(d => d.data()))))
+      }
+    )
+    return () => { unsub(); fallbackUnsub?.() }
   }, [isOpen, userEmail, user])
 
   // ── Scroll al último mensaje ─────────────────────────────────────────────
