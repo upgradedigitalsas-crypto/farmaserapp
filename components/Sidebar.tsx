@@ -4,21 +4,20 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import {
   Sparkles, LayoutDashboard, Building2, ClipboardList, CalendarDays,
-  BarChart3, LogOut, BookOpen, Lock, UserCircle, MessageSquare, Headphones,
+  BarChart3, LogOut, BookOpen, Lock, UserCircle, Headphones,
 } from 'lucide-react';
 
 const menuItems = [
-  { name: 'Novedades',       href: '/news',            icon: Sparkles      },
-  { name: 'Dashboard',       href: '/dashboard',       icon: LayoutDashboard },
-  { name: 'Centros Médicos', href: '/medical-centers', icon: Building2     },
-  { name: 'Visitas',         href: '/visits',          icon: ClipboardList },
-  { name: 'Itinerario',      href: '/itinerary',       icon: CalendarDays  },
-  { name: 'Chat Interno',    href: '/chat',            icon: MessageSquare },
-  { name: 'Reportes',        href: '/reports',         icon: BarChart3     },
-  { name: 'Labores Visitador', href: '/labores',       icon: BookOpen      },
-  { name: 'E-Learning',      href: '/elearning',       icon: Lock          },
-  { name: 'Evaluación',      href: '/evaluacion',      icon: Lock          },
-  { name: 'Mi Perfil',       href: '/perfil',          icon: UserCircle    },
+  { name: 'Novedades',         href: '/news',            icon: Sparkles        },
+  { name: 'Dashboard',         href: '/dashboard',       icon: LayoutDashboard },
+  { name: 'Centros Médicos',   href: '/medical-centers', icon: Building2       },
+  { name: 'Visitas',           href: '/visits',          icon: ClipboardList   },
+  { name: 'Itinerario',        href: '/itinerary',       icon: CalendarDays    },
+  { name: 'Reportes',          href: '/reports',         icon: BarChart3       },
+  { name: 'Labores Visitador', href: '/labores',         icon: BookOpen        },
+  { name: 'E-Learning',        href: '/elearning',       icon: Lock            },
+  { name: 'Evaluación',        href: '/evaluacion',      icon: Lock            },
+  { name: 'Mi Perfil',         href: '/perfil',          icon: UserCircle      },
 ];
 
 const SUPPORT_ADMIN_EMAIL = 'upgradedigitalsas@gmail.com';
