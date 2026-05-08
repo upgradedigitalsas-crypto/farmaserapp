@@ -99,8 +99,8 @@ export default function ChatWidget() {
         const q2 = query(collection(db, 'chat_messages'), where('channel', '==', activeChannel), limit(60))
         fallbackUnsub = onSnapshot(q2, snap2 => {
           const msgs = snap2.docs
-            .map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => (a.createdAt?.toDate?.()?.getTime() || 0) - (b.createdAt?.toDate?.()?.getTime() || 0))
+            .map(d => ({ id: d.id, ...d.data() } as any))
+            .sort((a: any, b: any) => (a.createdAt?.toDate?.()?.getTime() || 0) - (b.createdAt?.toDate?.()?.getTime() || 0))
           setMessages(msgs)
           setLoading(false)
           localStorage.setItem(`chat_seen_${activeChannel}`, Date.now().toString())
