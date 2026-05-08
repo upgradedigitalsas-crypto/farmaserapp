@@ -314,10 +314,10 @@ export default function ChatWidget() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-2xl shadow-blue-600/40 flex items-center justify-center transition-all hover:scale-110"
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 active:scale-95 text-white rounded-2xl shadow-2xl shadow-blue-600/40 flex items-center justify-center transition-all hover:scale-110 hover:shadow-blue-500/50"
           aria-label="Abrir chat"
         >
-          <MessageSquare size={24} />
+          <MessageSquare size={22} className="drop-shadow-sm" />
           {unread > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg animate-bounce">
               {unread > 9 ? '9+' : unread}
@@ -330,23 +330,23 @@ export default function ChatWidget() {
       {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 hidden md:flex flex-col w-[380px] h-[540px] bg-white rounded-3xl shadow-2xl shadow-black/20 border border-gray-100 overflow-hidden">
           {/* Header */}
-          <div className="bg-[#0F172A] px-4 py-3 flex items-center gap-3 shrink-0">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
-              <MessageSquare size={15} className="text-white" />
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-3 flex items-center gap-3 shrink-0 border-b border-white/5">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-blue-700/30">
+              <MessageSquare size={14} className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-black text-white">Chat Interno</p>
-              <p className="text-[10px] text-gray-400">#{CHANNEL_LABELS[activeChannel]}</p>
+              <p className="text-sm font-black text-white tracking-tight">Chat Interno</p>
+              <p className="text-[10px] text-slate-400 font-medium">{CHANNEL_LABELS[activeChannel]}</p>
             </div>
             <button onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
+              className="text-slate-400 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
               <X size={16} />
             </button>
           </div>
 
           {/* Tabs de canales */}
           {accessibleChannels.length > 1 && (
-            <div className="flex gap-1 px-2 pt-2 pb-1.5 bg-[#1E293B] overflow-x-auto" style={{scrollbarWidth:'none'}}>
+            <div className="flex gap-1 px-2 pt-2 pb-1.5 bg-slate-800/80 overflow-x-auto" style={{scrollbarWidth:'none'}}>
               {accessibleChannels.map(ch => (
                 <button key={ch} onClick={() => setActiveChannel(ch)}
                   className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
@@ -371,22 +371,22 @@ export default function ChatWidget() {
       {isOpen && (
         <div className="fixed inset-0 z-50 md:hidden flex flex-col bg-[#F8FAFC]">
           {/* Header */}
-          <div className="bg-[#0F172A] px-4 pt-10 pb-3 flex items-center gap-3 shrink-0">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
-              <MessageSquare size={15} className="text-white" />
+          <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 pt-10 pb-3 flex items-center gap-3 shrink-0 border-b border-white/5">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-blue-700/30">
+              <MessageSquare size={14} className="text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-black text-white">Chat Interno</p>
-              <p className="text-[10px] text-gray-400">Farmaser</p>
+              <p className="text-sm font-black text-white tracking-tight">Chat Interno</p>
+              <p className="text-[10px] text-slate-400 font-medium">Farmaser</p>
             </div>
             <button onClick={() => setIsOpen(false)}
-              className="text-gray-400 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
+              className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors">
               <X size={20} />
             </button>
           </div>
 
           {/* Tabs de canales */}
-          <div className="flex gap-1 px-2 pt-2 pb-2 bg-[#0F172A] overflow-x-auto" style={{scrollbarWidth:'none'}}>
+          <div className="flex gap-1 px-2 pt-2 pb-2 bg-slate-800/80 overflow-x-auto" style={{scrollbarWidth:'none'}}>
             {accessibleChannels.map(ch => (
               <button key={ch} onClick={() => setActiveChannel(ch)}
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${

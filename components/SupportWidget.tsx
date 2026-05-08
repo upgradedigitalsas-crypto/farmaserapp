@@ -7,7 +7,7 @@ import {
   collection, addDoc, query, where, orderBy,
   onSnapshot, Timestamp, doc, setDoc,
 } from 'firebase/firestore'
-import { HelpCircle, X, Send, Loader2, MessageCircle, ChevronDown } from 'lucide-react'
+import { Zap, X, Send, Loader2, MessageCircle, ChevronDown } from 'lucide-react'
 
 export const SUPPORT_ADMIN = 'upgradedigitalsas@gmail.com'
 
@@ -111,16 +111,16 @@ export default function SupportWidget() {
 
   // ── RENDER ──────────────────────────────────────────────────────────────
   const Header = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="bg-teal-700 px-4 flex items-center gap-3 shrink-0" style={{ paddingTop: mobile ? '2.5rem' : '0.75rem', paddingBottom: '0.75rem' }}>
-      <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
-        <HelpCircle size={16} className="text-white" />
+    <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-white/5 px-4 flex items-center gap-3 shrink-0" style={{ paddingTop: mobile ? '2.5rem' : '0.75rem', paddingBottom: '0.75rem' }}>
+      <div className="w-8 h-8 bg-gradient-to-br from-teal-400 to-emerald-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-teal-700/30">
+        <Zap size={15} className="text-white" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-black text-white">Soporte Técnico</p>
-        <p className="text-[10px] text-teal-200">UpgradeDigital · responde pronto 🟢</p>
+        <p className="text-sm font-black text-white tracking-tight">Soporte Técnico</p>
+        <p className="text-[10px] text-slate-400 font-medium">UpgradeDigital · responde pronto 🟢</p>
       </div>
       <button onClick={() => setIsOpen(false)}
-        className="text-teal-200 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors">
+        className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors">
         {mobile ? <ChevronDown size={20} /> : <X size={16} />}
       </button>
     </div>
@@ -182,9 +182,9 @@ export default function SupportWidget() {
       {/* ── Botón flotante ─────────────────────────────────────────────── */}
       {!isOpen && (
         <button onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 left-6 z-50 w-12 h-12 bg-teal-600 hover:bg-teal-700 active:scale-95 text-white rounded-full shadow-xl shadow-teal-600/40 flex items-center justify-center transition-all hover:scale-110"
+          className="fixed bottom-6 left-6 z-50 w-12 h-12 bg-gradient-to-br from-teal-400 to-emerald-600 hover:from-teal-500 hover:to-emerald-700 active:scale-95 text-white rounded-2xl shadow-xl shadow-teal-600/40 flex items-center justify-center transition-all hover:scale-110 hover:shadow-2xl hover:shadow-teal-500/50"
           aria-label="Soporte técnico">
-          <HelpCircle size={20} />
+          <Zap size={20} className="drop-shadow-sm" />
           {unread > 0 && (
             <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg animate-bounce">
               {unread > 9 ? '9+' : unread}
