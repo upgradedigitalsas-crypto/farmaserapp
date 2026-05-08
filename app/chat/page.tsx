@@ -78,9 +78,10 @@ export default function ChatPage() {
   const [showMembers, setShowMembers]       = useState(false)
   const [showEmoji, setShowEmoji]           = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
-  const bottomRef  = useRef<HTMLDivElement>(null)
-  const inputRef   = useRef<HTMLTextAreaElement>(null)
-  const fileRef    = useRef<HTMLInputElement>(null)
+  const bottomRef      = useRef<HTMLDivElement>(null)
+  const messagesRef    = useRef<HTMLDivElement>(null)
+  const inputRef       = useRef<HTMLTextAreaElement>(null)
+  const fileRef        = useRef<HTMLInputElement>(null)
 
   const userEmail = user?.email?.toLowerCase().trim() || ''
   const userName  = user?.name || nameFromEmail(userEmail)
@@ -139,7 +140,12 @@ export default function ChatPage() {
     return () => { unsub(); fallbackUnsub?.() }
   }, [activeChannel])
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+  useEffect(() => {
+    // Scrollear SOLO el contenedor de mensajes, no padres overflow:hidden
+    if (messagesRef.current) {
+      messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+    }
+  }, [messages])
 
   // ── Enviar ───────────────────────────────────────────────────────────────
   const handleSend = async () => {
@@ -357,7 +363,7 @@ export default function ChatPage() {
         </div>
 
         {/* Mensajes */}
-        <div className="flex-1 overflow-y-auto px-4 py-3">
+        <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-3">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="animate-spin text-blue-500" size={28} />
