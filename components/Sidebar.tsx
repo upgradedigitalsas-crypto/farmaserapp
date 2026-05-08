@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 // Agregué 'Sparkles' a la lista de iconos importados
-import { Sparkles, LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen, Lock, UserCircle } from 'lucide-react';
+import { Sparkles, LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen, Lock, UserCircle, MessageSquare } from 'lucide-react';
 
 const menuItems = [
   // Aquí está tu botón nuevo apuntando a la ruta correcta
@@ -12,6 +12,7 @@ const menuItems = [
   { name: 'Centros Médicos', href: '/medical-centers', icon: Building2 },
   { name: 'Visitas', href: '/visits', icon: ClipboardList },
   { name: 'Itinerario', href: '/itinerary', icon: CalendarDays },
+  { name: 'Chat Interno', href: '/chat', icon: MessageSquare },
   { name: 'Reportes', href: '/reports', icon: BarChart3 },
   { name: 'Labores Visitador', href: '/labores', icon: BookOpen },
   { name: 'E-Learning', href: '/elearning', icon: Lock },
