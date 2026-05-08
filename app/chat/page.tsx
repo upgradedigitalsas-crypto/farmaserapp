@@ -208,59 +208,71 @@ export default function ChatPage() {
     <div className="flex h-full overflow-hidden bg-[#0F172A]">
 
       {/* ── PANEL IZQUIERDO (desktop) ──────────────────────────────────────── */}
-      <aside className="hidden md:flex w-56 bg-[#0F172A] text-white flex-col shrink-0">
-        {/* Encabezado */}
-        <div className="px-4 py-4 border-b border-white/10">
+      <aside className="hidden md:flex w-56 bg-slate-800 text-white flex-col shrink-0 border-r border-white/5">
+        {/* Encabezado — mismo tono que sidebar de Farmaser, ancla visual */}
+        <div className="px-4 py-4 bg-slate-900 border-b border-white/10">
           <p className="text-xs font-black text-white uppercase tracking-widest">Chat Interno</p>
-          <p className="text-[10px] text-gray-500 mt-0.5">Farmaser — Trial v1</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">Farmaser — Trial v1</p>
         </div>
 
         {/* Canales */}
-        <div className="px-2 pt-3">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-1">Canales</p>
+        <div className="px-2 pt-4">
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2 mb-2">Canales</p>
           <nav className="space-y-0.5">
             {accessibleChannels.map(ch => (
               <button key={ch} onClick={() => setActiveChannel(ch)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all text-left ${
-                  activeChannel === ch ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${
+                  activeChannel === ch
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:bg-slate-700 hover:text-slate-100'
                 }`}>
-                <ChannelIcon channel={ch} size={13} className="shrink-0" />
+                <ChannelIcon channel={ch} size={13} className="shrink-0 opacity-80" />
                 <span className="truncate flex-1">{CHANNEL_LABELS[ch]}</span>
-                <span className="text-[9px] opacity-50">{CHANNEL_MEMBERS[ch]?.length}</span>
+                {CHANNEL_MEMBERS[ch]?.length > 0 && (
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${activeChannel === ch ? 'bg-blue-500 text-blue-100' : 'bg-slate-700 text-slate-400'}`}>
+                    {CHANNEL_MEMBERS[ch]?.length}
+                  </span>
+                )}
               </button>
             ))}
           </nav>
         </div>
 
         {/* Miembros del canal */}
-        <div className="px-2 pt-4 flex-1 overflow-y-auto">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-2">
+        <div className="px-2 pt-5 flex-1 overflow-y-auto">
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-2 mb-2">
             Miembros · {channelMembers.length}
           </p>
           <div className="space-y-0.5">
             {channelMembers.map(email => (
-              <div key={email} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 group">
-                <div className={`w-6 h-6 rounded-full ${avatarColor(email)} flex items-center justify-center text-white text-[9px] font-black shrink-0`}>
-                  {getInitials(nameFromEmail(email))}
+              <div key={email} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700 group transition-colors">
+                <div className="relative shrink-0">
+                  <div className={`w-6 h-6 rounded-full ${avatarColor(email)} flex items-center justify-center text-white text-[9px] font-black`}>
+                    {getInitials(nameFromEmail(email))}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-slate-800" />
                 </div>
-                <span className="text-[11px] text-gray-400 truncate group-hover:text-gray-200 transition-colors flex-1">
+                <span className="text-[11px] text-slate-400 truncate group-hover:text-slate-100 transition-colors flex-1">
                   {nameFromEmail(email)}
                 </span>
-                {email === userEmail && <span className="text-[9px] text-blue-400 font-black">tú</span>}
+                {email === userEmail && <span className="text-[9px] text-blue-400 font-black shrink-0">tú</span>}
               </div>
             ))}
           </div>
         </div>
 
         {/* Usuario actual */}
-        <div className="p-3 border-t border-white/10 shrink-0">
+        <div className="p-3 bg-slate-900 border-t border-white/10 shrink-0">
           <div className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-full ${avatarColor(userEmail)} flex items-center justify-center text-white text-xs font-black shrink-0`}>
-              {getInitials(userName)}
+            <div className="relative shrink-0">
+              <div className={`w-8 h-8 rounded-full ${avatarColor(userEmail)} flex items-center justify-center text-white text-xs font-black`}>
+                {getInitials(userName)}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-slate-900" />
             </div>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden flex-1">
               <p className="text-xs font-bold text-white truncate">{userName}</p>
-              <p className="text-[10px] text-gray-500 truncate">{userEmail}</p>
+              <p className="text-[10px] text-slate-500 truncate">{userEmail}</p>
             </div>
           </div>
         </div>
