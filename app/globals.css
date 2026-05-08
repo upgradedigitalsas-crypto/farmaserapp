@@ -33,12 +33,18 @@ html, body {
   background: transparent;
 }
 
-/* ── Smooth micro-interactions ───────────────────────────── */
-button, a {
-  transition: all 0.15s ease;
+/* ── Smooth micro-interactions (específicas, no "all") ───── */
+button {
+  transition: background-color 0.15s ease, color 0.15s ease,
+              box-shadow 0.15s ease, opacity 0.15s ease,
+              transform 0.1s ease;
+}
+a {
+  transition: color 0.15s ease, opacity 0.15s ease;
 }
 input, select, textarea {
-  transition: box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, background-color 0.15s ease,
+              border-color 0.15s ease;
 }
 
 /* 🎯 LA LLAVE MAESTRA UNIVERSAL */
@@ -55,11 +61,6 @@ main section > div {
   width: 100% !important;
 }
 
-/* Espaciado interno uniforme para que el texto no toque el borde azul */
-main > div {
-  padding-left: 1.5rem !important;
-  padding-right: 1.5rem !important;
-}
 /* =========================================
    OCULTAR BARRA DE SCROLL (DISEÑO MODERNO)
    ========================================= */
