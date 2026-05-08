@@ -2,11 +2,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-// Agregué 'Sparkles' a la lista de iconos importados
-import { Sparkles, LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen, Lock, UserCircle, MessageSquare } from 'lucide-react';
+import { Sparkles, LayoutDashboard, Building2, ClipboardList, CalendarDays, BarChart3, LogOut, BookOpen, Lock, UserCircle, MessageSquare, Headphones } from 'lucide-react';
 
 const menuItems = [
-  // Aquí está tu botón nuevo apuntando a la ruta correcta
   { name: 'Novedades', href: '/news', icon: Sparkles },
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Centros Médicos', href: '/medical-centers', icon: Building2 },
@@ -20,9 +18,11 @@ const menuItems = [
   { name: 'Mi Perfil', href: '/perfil', icon: UserCircle },
 ];
 
+const SUPPORT_ADMIN_EMAIL = 'upgradedigitalsas@gmail.com';
+
 export default function Sidebar() {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   
   return (
     <div className="flex h-full flex-col bg-slate-900 text-white">
@@ -39,6 +39,13 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        {/* Solo visible para el admin de soporte */}
+        {user?.email?.toLowerCase() === SUPPORT_ADMIN_EMAIL && (
+          <Link href="/soporte" className={`flex items-center rounded-lg px-3 py-2 transition-colors ${pathname === '/soporte' ? 'bg-teal-600 text-white' : 'text-teal-400 hover:bg-teal-900/30 hover:text-teal-300'}`}>
+            <Headphones className="mr-3 h-5 w-5 flex-shrink-0" />
+            <span className="text-sm font-medium">Inbox Soporte</span>
+          </Link>
+        )}
       </nav>
       <div className="border-t border-slate-800 p-4">
         <button onClick={logout} className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-900/20 hover:text-red-300">
