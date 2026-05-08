@@ -17,11 +17,13 @@ const CHANNEL_MANAGER: Record<string, string> = {
 }
 const CHANNEL_LABELS: Record<string, string> = {
   'general':        'General',
+  'gerentes':       'Gerentes',
   'equipo-leidys':  'Equipo Leidys',
   'equipo-luis':    'Equipo Luis Carlos',
   'equipo-yuliana': 'Equipo Yuliana',
 }
 const ADMIN_EMAIL = 'entrenamientofarmaser@gmail.com'
+const MANAGER_EMAILS = Object.values(CHANNEL_MANAGER)
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function nameFromEmail(email: string): string {
@@ -64,15 +66,19 @@ export default function ChatWidget() {
   const isAdmin   = user?.role === 'admin' || userEmail === ADMIN_EMAIL
 
   // ── Canales accesibles ───────────────────────────────────────────────────
+  const isManager = MANAGER_EMAILS.includes(userEmail)
+
   const accessibleChannels = useMemo(() => {
     if (isAdmin) return Object.keys(CHANNEL_LABELS)
     const channels = ['general']
-    // ¿Es gerente? → busca su canal directo
-    const direct = Object.entries(CHANNEL_MANAGER).find(([, managerEmail]) => managerEmail === userEmail)
-    if (direct) {
-      channels.push(direct[0])
+    // Admin y gerentes ven el canal privado de dirección
+    if (isManager) {
+      channels.push('gerentes')
+      // Gerente también ve su canal de equipo
+      const direct = Object.entries(CHANNEL_MANAGER).find(([, managerEmail]) => managerEmail === userEmail)
+      if (direct) channels.push(direct[0])
     } else {
-      // ¿Es visitador? → busca en qué equipo está usando el email del gerente como clave
+      // Visitador → busca su canal de equipo
       for (const [channelKey, managerEmail] of Object.entries(CHANNEL_MANAGER)) {
         if ((TEAM_MAPPING[managerEmail] || []).includes(userEmail)) {
           channels.push(channelKey)
@@ -81,7 +87,7 @@ export default function ChatWidget() {
       }
     }
     return channels
-  }, [userEmail, isAdmin])
+  }, [userEmail, isAdmin, isManager])
 
   // ── Mensajes cuando está abierto (con fallback sin índice) ──────────────
   useEffect(() => {

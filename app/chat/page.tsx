@@ -15,10 +15,12 @@ const CHANNEL_MANAGER: Record<string, string> = {
 }
 const CHANNEL_LABELS: Record<string, string> = {
   'general':        'General',
+  'gerentes':       'Gerentes',
   'equipo-leidys':  'Equipo Leidys',
   'equipo-luis':    'Equipo Luis Carlos',
   'equipo-yuliana': 'Equipo Yuliana',
 }
+const MANAGER_EMAILS = Object.values(CHANNEL_MANAGER)
 const ADMIN_EMAIL = 'entrenamientofarmaser@gmail.com'
 const ALL_MEMBERS = [ADMIN_EMAIL, ...Object.values(TEAM_MAPPING).flat()]
   .filter((v, i, a) => a.indexOf(v) === i)
@@ -77,17 +79,19 @@ export default function ChatPage() {
   const userEmail = user?.email?.toLowerCase().trim() || ''
   const userName  = user?.name || nameFromEmail(userEmail)
   const isAdmin   = user?.role === 'admin' || userEmail === ADMIN_EMAIL
+  const isManager = MANAGER_EMAILS.includes(userEmail)
 
   // ── Canales accesibles ───────────────────────────────────────────────────
   const accessibleChannels = useMemo(() => {
     if (isAdmin) return Object.keys(CHANNEL_LABELS)
     const channels = ['general']
-    // ¿Es gerente? → busca su canal directo
-    const direct = Object.entries(CHANNEL_MANAGER).find(([, managerEmail]) => managerEmail === userEmail)
-    if (direct) {
-      channels.push(direct[0])
+    if (isManager) {
+      // Gerente ve: General → Gerentes → su canal de equipo
+      channels.push('gerentes')
+      const direct = Object.entries(CHANNEL_MANAGER).find(([, managerEmail]) => managerEmail === userEmail)
+      if (direct) channels.push(direct[0])
     } else {
-      // ¿Es visitador? → busca en qué equipo está usando el email del gerente como clave
+      // Visitador ve: General → canal de su equipo
       for (const [channelKey, managerEmail] of Object.entries(CHANNEL_MANAGER)) {
         if ((TEAM_MAPPING[managerEmail] || []).includes(userEmail)) {
           channels.push(channelKey)
@@ -96,7 +100,7 @@ export default function ChatPage() {
       }
     }
     return channels
-  }, [userEmail, isAdmin])
+  }, [userEmail, isAdmin, isManager])
 
   // ── Firestore listener (con fallback si falta el índice compuesto) ──────
   useEffect(() => {
