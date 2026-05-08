@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import Sidebar from '@/components/Sidebar';
+import ChatWidget from '@/components/ChatWidget';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import './globals.css';
@@ -56,6 +57,8 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      <ChatWidget />
     </div>
   );
 }
