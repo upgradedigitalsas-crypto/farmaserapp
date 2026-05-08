@@ -281,18 +281,9 @@ export default function ChatPage() {
       {/* ── ÁREA PRINCIPAL ────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F8FAFC]">
 
-        {/* Header mobile — branding + tabs (shrink-0 evita compresión flex) */}
-        <div className="md:hidden shrink-0 bg-[#0F172A]">
-          {/* Branded top row — arranca a pl-16 para no chocar con el hamburger */}
-          <div className="flex items-center gap-2 pl-16 pr-4 pt-3 pb-2">
-            <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center shrink-0 shadow-md shadow-blue-900/50">
-              <MessageSquare size={13} className="text-white" />
-            </div>
-            <span className="text-sm font-bold text-white leading-none">Chat Interno</span>
-            <span className="text-slate-500 text-[11px] leading-none">· Farmaser</span>
-          </div>
-          {/* Tab pills — igual que el widget */}
-          <div className="flex gap-1 overflow-x-auto px-3 pb-2.5" style={{scrollbarWidth:'none'}}>
+        {/* Tab bar mobile — pl-16 para que los tabs empiecen después del botón hamburger (x≥64px) */}
+        <div className="md:hidden shrink-0 bg-[#0F172A] py-3 pl-16 pr-3">
+          <div className="flex gap-1.5 overflow-x-auto" style={{scrollbarWidth:'none'}}>
             {accessibleChannels.map(ch => (
               <button key={ch} onClick={() => setActiveChannel(ch)}
                 className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all ${
