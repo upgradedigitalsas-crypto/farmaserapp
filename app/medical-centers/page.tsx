@@ -89,27 +89,33 @@ export default function MedicalCentersPage() {
     document.body.removeChild(link);
   }
 
-  if (loading) return <div className="p-20 text-center font-black text-gray-300 lg:ml-64">CARGANDO...</div>
+  if (loading) return (
+    <div className="flex items-center justify-center h-64 lg:ml-64">
+      <p className="text-sm text-gray-400 animate-pulse font-medium">Cargando directorio...</p>
+    </div>
+  )
 
   return (
-    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
-      <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-6">
+    <div className="p-4 pt-20 lg:p-10 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F5F5F7]">
+      <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
             {isAdmin ? 'Directorio Maestro' : isManager ? 'Directorio de Equipo' : 'Mi Base Asignada'}
           </h1>
-          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2">Total en cartera: {baseDocs.length}</p>
+          <p className="text-gray-400 text-sm mt-1">
+            <span className="font-semibold text-gray-600">{baseDocs.length}</span> médicos en cartera
+          </p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           
           {(isAdmin || isManager) && (
-            <div className="bg-white border-2 border-indigo-100 p-2 rounded-xl flex items-center gap-2 w-full sm:w-auto mr-2">
-              <Filter size={16} className="text-indigo-600 ml-2" />
-              <select 
-                value={selectedRepFilter} 
+            <div className="bg-white border border-black/[0.07] p-2 rounded-xl flex items-center gap-2 w-full sm:w-auto shadow-sm">
+              <Filter size={15} className="text-indigo-500 ml-2 shrink-0" />
+              <select
+                value={selectedRepFilter}
                 onChange={(e) => setSelectedRepFilter(e.target.value)}
-                className="text-[10px] font-black uppercase text-gray-700 bg-transparent outline-none cursor-pointer pr-4"
+                className="text-xs font-semibold text-gray-700 bg-transparent outline-none cursor-pointer pr-4"
               >
                 {isAdmin ? (
                   <option value="Todos">Toda La Empresa</option>
@@ -126,52 +132,58 @@ export default function MedicalCentersPage() {
             </div>
           )}
 
-          <button 
-            onClick={() => exportCSV(filteredDocs, 'Base_Filtrada.csv')} 
-            className="w-full sm:w-auto bg-white border-2 border-gray-200 text-gray-600 text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-all"
+          <button
+            onClick={() => exportCSV(filteredDocs, 'Base_Filtrada.csv')}
+            className="w-full sm:w-auto bg-white border border-black/[0.07] text-gray-600 text-xs font-semibold px-5 py-3 rounded-xl shadow-sm flex items-center justify-center gap-2 hover:bg-gray-50"
           >
-            <Download size={16} /> Exportar Filtro ({filteredDocs.length})
+            <Download size={14} /> Filtro ({filteredDocs.length})
           </button>
-          
-          <button 
-            onClick={() => exportCSV(baseDocs, isAdmin ? 'Directorio_Empresa.csv' : isManager ? 'Directorio_Equipo.csv' : 'Directorio_Visitador.csv')} 
-            className="w-full sm:w-auto bg-blue-600 text-white text-[10px] font-black uppercase px-6 py-4 rounded-xl shadow-lg shadow-blue-200 flex items-center justify-center gap-2 hover:bg-blue-700 active:scale-95 transition-all"
+
+          <button
+            onClick={() => exportCSV(baseDocs, isAdmin ? 'Directorio_Empresa.csv' : isManager ? 'Directorio_Equipo.csv' : 'Directorio_Visitador.csv')}
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-5 py-3 rounded-xl shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 active:scale-[0.98]"
           >
-            <Download size={16} /> Exportar Toda La Base
+            <Download size={14} /> Exportar Base
           </button>
         </div>
       </header>
       
-      <div className="relative mb-10">
-        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-        <input type="text" placeholder="Buscar por nombre o especialidad..." className="w-full bg-white border border-gray-100 shadow-sm rounded-2xl py-5 pl-14 pr-6 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+      <div className="relative mb-6">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <input
+          type="text"
+          placeholder="Buscar por nombre o especialidad..."
+          className="w-full bg-white border border-black/[0.07] shadow-sm rounded-2xl py-3.5 pl-11 pr-5 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-300"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
-      
-      <div className="space-y-4">
+
+      <div className="space-y-2.5">
         {filteredDocs.length === 0 ? (
-           <div className="text-center p-10 text-gray-400 font-bold text-sm uppercase">No se encontraron resultados.</div>
+          <div className="text-center p-10 text-sm text-gray-400">No se encontraron resultados.</div>
         ) : (
           filteredDocs.map((doc, i) => (
-            <div key={i} className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex items-start sm:items-center gap-5 flex-col sm:flex-row hover:border-blue-200 transition-colors">
-              <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 border shrink-0"><User size={26} /></div>
+            <div key={i} className="bg-white px-5 py-4 rounded-2xl shadow-sm border border-black/[0.05] flex items-center gap-4 flex-col sm:flex-row hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 shrink-0"><User size={20} /></div>
               <div className="flex-1 min-w-0 w-full">
                 <div className="flex items-center gap-2 mb-1">
-                  {doc.category && <span className="bg-blue-100 text-blue-700 text-[9px] font-black px-2 py-0.5 rounded-md uppercase">CAT: {doc.category}</span>}
-                  <p className="font-black text-gray-900 text-base truncate uppercase tracking-tighter">{doc.name}</p>
+                  {doc.category && <span className="bg-blue-50 text-blue-600 text-[10px] font-semibold px-2 py-0.5 rounded-lg">Cat. {doc.category}</span>}
+                  <p className="font-semibold text-gray-900 text-sm truncate">{doc.name}</p>
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <div className="flex items-center gap-1 text-gray-400">
-                    <Star size={12} className="text-blue-500" />
-                    <span className="text-[11px] font-bold uppercase">{doc.specialty}</span>
+                    <Star size={11} className="text-blue-400" />
+                    <span className="text-xs">{doc.specialty}</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-400">
-                    <MapPin size={12} />
-                    <span className="text-[11px] font-bold uppercase">{doc.city}</span>
+                    <MapPin size={11} />
+                    <span className="text-xs">{doc.city}</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-400">
-                    <Navigation size={12} />
-                    <span className="text-[11px] font-bold uppercase">{doc.address}</span>
+                    <Navigation size={11} />
+                    <span className="text-xs truncate max-w-[180px]">{doc.address}</span>
                   </div>
                   
                   {doc.phone && (

@@ -150,26 +150,30 @@ export default function DashboardPage() {
   const todayStr = new Date().toISOString().slice(0, 10)
   const visitasHoy = visits.filter(v => v.visitDate === todayStr)
 
-  if (loading) return <div className="p-20 text-center font-black text-gray-400 animate-pulse lg:ml-64">Sincronizando Métricas...</div>
+  if (loading) return (
+    <div className="flex items-center justify-center h-64 lg:ml-64">
+      <p className="text-sm text-gray-400 animate-pulse font-medium">Sincronizando métricas...</p>
+    </div>
+  )
 
   return (
-    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
-      
-      <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-10 gap-6">
+    <div className="p-4 pt-20 lg:p-10 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F5F5F7]">
+
+      <header className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">Panel de Control</h1>
-          <p className="text-gray-500 font-medium text-sm mt-2">{user?.email} {isAdmin ? '(Super Admin)' : isManager ? '(Modo Gerente)' : ''}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Panel de Control</h1>
+          <p className="text-gray-500 text-sm mt-1">{user?.email}{isAdmin ? ' · Super Admin' : isManager ? ' · Gerente' : ''}</p>
         </div>
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full xl:w-auto">
           {(isAdmin || isManager) && (
-            <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 w-full sm:w-auto">
-              <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600"><Filter size={20}/></div>
-              <div className="pr-3">
-                <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Vista Activa</p>
-                <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none pr-4">
+            <div className="bg-white px-3 py-2.5 rounded-2xl shadow-sm border border-black/[0.06] flex items-center gap-2.5 w-full sm:w-auto">
+              <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 shrink-0"><Filter size={16}/></div>
+              <div className="pr-2">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Vista activa</p>
+                <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer appearance-none pr-4">
                   {isAdmin ? (
-                    <option value="Todos">Toda la Empresa (Global)</option>
+                    <option value="Todos">Toda la Empresa</option>
                   ) : (
                     <>
                       <option value="Todos">Consolidado Equipo</option>
@@ -181,11 +185,11 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-          <div className="bg-blue-600 text-white p-4 rounded-2xl shadow-lg shadow-blue-200 flex items-center gap-4 min-w-[160px] w-full sm:w-auto">
-            <div className="bg-white/20 p-2 rounded-xl"><Zap size={20} /></div>
+          <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white px-5 py-3.5 rounded-2xl shadow-lg shadow-blue-600/25 flex items-center gap-3.5 min-w-[150px] w-full sm:w-auto">
+            <div className="bg-white/20 p-2 rounded-xl shrink-0"><Zap size={18} /></div>
             <div>
-              <p className="text-[10px] font-black uppercase opacity-80 mb-0.5">Visitas Hoy</p>
-              <p className="text-2xl font-black leading-none">{visitasHoy.length}</p>
+              <p className="text-[10px] font-semibold uppercase opacity-80 tracking-wide mb-0.5">Visitas hoy</p>
+              <p className="text-2xl font-bold leading-none">{visitasHoy.length}</p>
             </div>
           </div>
         </div>
@@ -277,111 +281,153 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      {/* --- TARJETAS DE INDICADORES (CONSOLIDADAS) --- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-blue-200 transition-colors">
-          <div className="flex items-start justify-between w-full">
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Planeadas</p>
-              <p className="text-3xl font-black text-gray-900">{visits.length}</p>
+      {/* --- TARJETAS KPI --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+
+        {/* Planeadas */}
+        <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="h-1 bg-blue-500 rounded-t-2xl" />
+          <div className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Planeadas</p>
+                <p className="text-3xl font-bold text-gray-900">{visits.length}</p>
+              </div>
+              <div className="w-10 h-10 bg-blue-50 text-blue-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <CalendarDays size={20}/>
+              </div>
             </div>
-            <div className="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CalendarDays size={24}/></div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-blue-500">Estado:</span> Acumulado {currentMonthName}</p>
+            <p className="text-[11px] text-gray-400 mt-3 pt-3 border-t border-gray-50">
+              Acumulado <span className="font-semibold text-gray-600">{currentMonthName}</span>
+            </p>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-indigo-200 transition-colors">
-          <div className="flex items-start justify-between w-full">
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Reportadas</p>
-              <p className="text-3xl font-black text-gray-900">{reports.length}</p>
+
+        {/* Reportadas */}
+        <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="h-1 bg-indigo-500 rounded-t-2xl" />
+          <div className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Reportadas</p>
+                <p className="text-3xl font-bold text-gray-900">{reports.length}</p>
+              </div>
+              <div className="w-10 h-10 bg-indigo-50 text-indigo-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <CheckCircle size={20}/>
+              </div>
             </div>
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><CheckCircle size={24}/></div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-indigo-500">Total:</span> Validadas en plataforma</p>
+            <p className="text-[11px] text-gray-400 mt-3 pt-3 border-t border-gray-50">
+              Validadas en <span className="font-semibold text-gray-600">plataforma</span>
+            </p>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-green-200 transition-colors">
-          <div className="flex items-start justify-between w-full">
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Cobertura</p>
-              <p className="text-3xl font-black text-gray-900">{cobertura}%</p>
+
+        {/* Cobertura */}
+        <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="h-1 bg-emerald-500 rounded-t-2xl" />
+          <div className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Cobertura</p>
+                <p className="text-3xl font-bold text-gray-900">{cobertura}%</p>
+              </div>
+              <div className="w-10 h-10 bg-emerald-50 text-emerald-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <Users size={20}/>
+              </div>
             </div>
-            <div className="w-12 h-12 bg-green-50 text-green-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><Users size={24}/></div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-green-500">Métrica:</span> Penetracion de Cartera</p>
+            <p className="text-[11px] text-gray-400 mt-3 pt-3 border-t border-gray-50">
+              Penetración de <span className="font-semibold text-gray-600">cartera</span>
+            </p>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-purple-200 transition-colors">
-          <div className="flex items-start justify-between w-full">
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Efectividad</p>
-              <p className="text-3xl font-black text-gray-900">{efectividad}%</p>
+
+        {/* Efectividad */}
+        <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="h-1 bg-violet-500 rounded-t-2xl" />
+          <div className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Efectividad</p>
+                <p className="text-3xl font-bold text-gray-900">{efectividad}%</p>
+              </div>
+              <div className="w-10 h-10 bg-violet-50 text-violet-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <BarChart3 size={20}/>
+              </div>
             </div>
-            <div className="w-12 h-12 bg-purple-50 text-purple-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><BarChart3 size={24}/></div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-purple-500">Indicador:</span> Gestión vs Programación</p>
+            <p className="text-[11px] text-gray-400 mt-3 pt-3 border-t border-gray-50">
+              Gestión vs <span className="font-semibold text-gray-600">programación</span>
+            </p>
           </div>
         </div>
-        
-        <div className="bg-white p-6 rounded-[30px] shadow-sm border border-gray-100 flex flex-col justify-between group hover:border-orange-200 transition-colors">
-          <div className="flex items-start justify-between w-full">
-            <div>
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Pte Reporte</p>
-              <p className="text-3xl font-black text-gray-900">{noReportadas}</p>
+
+        {/* Pendiente */}
+        <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="h-1 bg-amber-500 rounded-t-2xl" />
+          <div className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Pte. Reporte</p>
+                <p className="text-3xl font-bold text-gray-900">{noReportadas}</p>
+              </div>
+              <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0">
+                <AlertCircle size={20}/>
+              </div>
             </div>
-            <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform"><AlertCircle size={24}/></div>
-          </div>
-          <div className="mt-4 pt-3 border-t border-gray-50 w-full">
-            <p className="text-[9px] font-bold text-gray-400 uppercase leading-tight"><span className="text-orange-500">Alerta:</span> Gestiones sin documentar</p>
+            <p className="text-[11px] text-gray-400 mt-3 pt-3 border-t border-gray-50">
+              Sin <span className="font-semibold text-gray-600">documentar</span>
+            </p>
           </div>
         </div>
+
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-8 rounded-[40px] shadow-sm border border-gray-100">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-black uppercase text-gray-900 tracking-tighter">Agenda del Día</h2>
-            <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">{currentDay} {currentMonthName}</div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* Agenda del día */}
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-black/[0.06] p-6">
+          <div className="flex justify-between items-center mb-5">
+            <h2 className="text-base font-semibold text-gray-900">Agenda del Día</h2>
+            <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-semibold">
+              {currentDay} {currentMonthName}
+            </span>
           </div>
           {visitasHoy.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-gray-400 font-medium italic text-sm">No hay visitas planeadas para hoy.</p>
+            <div className="py-10 text-center">
+              <p className="text-sm text-gray-400">No hay visitas planeadas para hoy.</p>
             </div>
           ) : (
-            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
               {visitasHoy.map((v: any, i: number) => (
-                <div key={i} className="p-4 bg-gray-50 rounded-2xl flex justify-between items-center border border-gray-100">
-                  <div>
-                    <p className="font-black text-gray-900 uppercase text-sm leading-tight">{v.doctorName}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase mt-0.5">{v.doctorDetails?.city || 'Sin ciudad'} • {v.doctorDetails?.specialty || 'General'}</p>
+                <div key={i} className="flex items-center justify-between gap-3 p-3.5 bg-gray-50/80 rounded-xl border border-black/[0.04] hover:bg-gray-100/60 transition-colors">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{v.doctorName}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate">
+                      {v.doctorDetails?.city || 'Sin ciudad'} · {v.doctorDetails?.specialty || 'General'}
+                    </p>
                     {(isAdmin || isManager) && selectedRep === 'Todos' && (
-                       <p className="text-[9px] font-black text-indigo-500 mt-1 truncate">{v.userEmail}</p>
+                      <p className="text-[10px] text-indigo-500 font-medium mt-0.5 truncate">{v.userEmail}</p>
                     )}
                   </div>
-                  <span className="text-xs font-black text-blue-600 bg-blue-100 px-3 py-1 rounded-lg shrink-0 ml-3">{v.startTime || '--:--'}</span>
+                  <span className="text-xs font-semibold text-blue-600 bg-blue-100 px-3 py-1.5 rounded-lg shrink-0">
+                    {v.startTime || '--:--'}
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </div>
-        
-        <div className="bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 flex flex-col justify-center items-center text-center">
-          <h2 className="text-lg font-black uppercase text-gray-900 mb-8 tracking-tighter w-full text-left">Cartera Global</h2>
-          <div className="bg-blue-50 w-full py-12 rounded-[30px] border border-blue-100 hover:scale-105 transition-transform">
-            <p className="text-6xl font-black text-blue-600 tracking-tighter mb-2">{baseSize}</p>
-            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">
-               {selectedRep === 'Todos' ? 'Médicos Totales (Global)' : 'Médicos Asignados'}
+
+        {/* Cartera */}
+        <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] p-6 flex flex-col">
+          <h2 className="text-base font-semibold text-gray-900 mb-5">Cartera Global</h2>
+          <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100/80 py-10 hover:shadow-inner transition-all">
+            <p className="text-5xl font-bold text-blue-600 tracking-tight mb-1">{baseSize}</p>
+            <p className="text-xs font-semibold text-blue-400 uppercase tracking-widest">
+              {selectedRep === 'Todos' ? 'Médicos totales' : 'Médicos asignados'}
             </p>
           </div>
         </div>
+
       </div>
     </div>
   )

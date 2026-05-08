@@ -42,66 +42,59 @@ const UPDATES = [
 
 export default function NewsPage() {
   return (
-    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1000px] min-h-screen bg-[#F8FAFC]">
-      
-      {/* CABECERA DEL MÓDULO */}
-      <header className="mb-12">
-        <div className="flex items-center gap-4 mb-2">
-          <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-200">
-            <Megaphone size={24} />
+    <div className="p-4 pt-20 lg:p-10 lg:ml-64 max-w-[900px] min-h-screen bg-[#F5F5F7]">
+
+      {/* Cabecera */}
+      <header className="mb-10">
+        <div className="flex items-center gap-3.5 mb-2">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-600/20 shrink-0">
+            <Megaphone size={18} />
           </div>
-          <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic">Novedades</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Novedades</h1>
         </div>
-        <p className="text-gray-500 font-medium ml-1">Descubre las nuevas herramientas y mejoras diseñadas para potenciar tu día a día.</p>
+        <p className="text-sm text-gray-500 ml-[3.375rem]">
+          Nuevas herramientas y mejoras diseñadas para potenciar tu día a día.
+        </p>
       </header>
 
-      {/* LISTADO DE ACTUALIZACIONES */}
-      <div className="space-y-6">
+      {/* Cards */}
+      <div className="space-y-3">
         {UPDATES.map((item) => (
-          <div key={item.id} className="group relative bg-white p-8 rounded-[40px] shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300">
-            <div className="flex flex-col md:flex-row md:items-start gap-6">
-              
-              {/* Contenedor del Icono */}
-              <div className={`w-14 h-14 ${item.color} rounded-3xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform duration-500`}>
+          <div key={item.id} className="group bg-white rounded-2xl shadow-sm border border-black/[0.05] hover:shadow-md transition-all duration-200 overflow-hidden">
+            <div className="flex items-start gap-5 p-6">
+
+              <div className={`w-12 h-12 ${item.color} rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-300`}>
                 {item.icon}
               </div>
 
-              <div className="flex-1">
-                {/* Etiquetas Superiores */}
-                <div className="flex flex-wrap items-center gap-3 mb-2">
-                  <span className={`text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${item.color} border border-current opacity-70`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wide px-2.5 py-0.5 rounded-full ${item.color} text-gray-600`}>
                     {item.tag}
                   </span>
-                  <span className="text-[10px] font-bold text-gray-300 uppercase tracking-tighter">{item.date}</span>
+                  <span className="text-[10px] text-gray-300 font-medium">{item.date}</span>
                 </div>
-                
-                {/* Título y Descripción */}
-                <h2 className="text-xl font-black text-gray-900 uppercase tracking-tight mb-3 leading-none">
+                <h2 className="text-base font-semibold text-gray-900 mb-1.5 leading-snug">
                   {item.title}
                 </h2>
-                
-                <p className="text-gray-500 font-medium leading-relaxed italic text-sm md:text-base">
-                  "{item.description}"
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  {item.description}
                 </p>
               </div>
 
-              {/* Indicador visual de interacción */}
-              <div className="hidden md:flex items-center justify-center self-center text-gray-100 group-hover:text-blue-500 transition-colors">
-                <ChevronRight size={32} />
+              <div className="hidden md:flex items-center self-center text-gray-200 group-hover:text-blue-400 transition-colors shrink-0">
+                <ChevronRight size={22} />
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* PIE DE PÁGINA */}
-      <footer className="mt-16 text-center py-10 border-t border-dashed border-gray-200">
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-gray-400 text-[10px] font-black uppercase tracking-[0.3em]">
-            Farmaser S.A. • Gestión Pro
-          </p>
-          <div className="h-1 w-12 bg-blue-100 rounded-full"></div>
-        </div>
+      {/* Footer */}
+      <footer className="mt-12 text-center py-8 border-t border-gray-200/70">
+        <p className="text-[11px] text-gray-400 font-medium uppercase tracking-widest">
+          Farmaser S.A. · Gestión Pro
+        </p>
       </footer>
     </div>
   )

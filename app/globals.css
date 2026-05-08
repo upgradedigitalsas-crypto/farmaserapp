@@ -2,12 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Reset total */
+/* ── Reset total ─────────────────────────────────────────── */
 html, body {
   margin: 0 !important;
   padding: 0 !important;
   height: 100%;
   width: 100%;
+  /* Apple system font stack */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+    'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Thin system-style scrollbar ─────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.14) transparent;
+}
+*::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.14);
+  border-radius: 99px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── Smooth micro-interactions ───────────────────────────── */
+button, a {
+  transition: all 0.15s ease;
+}
+input, select, textarea {
+  transition: box-shadow 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
 }
 
 /* 🎯 LA LLAVE MAESTRA UNIVERSAL */

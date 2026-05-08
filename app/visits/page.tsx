@@ -265,18 +265,18 @@ export default function PlanningPage() {
   const selectedIndex = selectedDoctor ? availableDocs.indexOf(selectedDoctor) : -1;
 
   return (
-    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
-      <header className="flex flex-col md:flex-row justify-between mb-10 gap-4">
+    <div className="p-4 pt-20 lg:p-10 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F5F5F7]">
+      <header className="flex flex-col md:flex-row justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">Planeación</h1>
-          <p className="text-gray-500 font-medium capitalize mt-2">{monthName} {currentYear}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Planeación de Visitas</h1>
+          <p className="text-gray-500 text-sm mt-1 capitalize">{monthName} {currentYear}</p>
         </div>
-        
+
         {(isAdmin || isManager) && (
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            <div className="bg-white p-2 rounded-2xl shadow-sm border flex items-center gap-3 w-full sm:w-auto">
-              <Filter size={20} className="text-indigo-600 ml-2"/>
-              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-bold bg-transparent outline-none cursor-pointer pr-4">
+            <div className="bg-white px-3 py-2.5 rounded-2xl shadow-sm border border-black/[0.06] flex items-center gap-2.5 w-full sm:w-auto">
+              <Filter size={15} className="text-indigo-500 ml-1 shrink-0"/>
+              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="text-sm font-semibold text-gray-800 bg-transparent outline-none cursor-pointer pr-4">
                 {isAdmin ? (
                   <option value="Todos">Toda la Empresa</option>
                 ) : (
@@ -288,8 +288,8 @@ export default function PlanningPage() {
                 {repsList.map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
-            <button onClick={exportCSV} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-6 py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-100">
-              <Download size={16}/> Descargar Excel
+            <button onClick={exportCSV} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-3 rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-[0.98]">
+              <Download size={14}/> Descargar Excel
             </button>
           </div>
         )}
@@ -299,9 +299,9 @@ export default function PlanningPage() {
         {((!isAdmin && !isManager) || selectedRep !== 'Todos') && (
           <div className="w-full space-y-6">
             {!editingId && (
-              <div className="bg-white p-6 md:p-8 rounded-[40px] shadow-sm border border-gray-100">
-                <select 
-                  className="w-full bg-gray-50 border rounded-2xl py-4 px-5 text-sm font-bold" 
+              <div className="bg-white p-5 md:p-7 rounded-2xl shadow-sm border border-black/[0.06]">
+                <select
+                  className="w-full bg-gray-50 border-0 rounded-xl py-3.5 px-4 text-sm font-medium text-gray-800 outline-none focus:ring-4 focus:ring-blue-500/10 cursor-pointer"
                   disabled={loading} 
                   value={selectedIndex >= 0 ? selectedIndex : ""} 
                   onChange={(e) => {
@@ -326,12 +326,12 @@ export default function PlanningPage() {
                   )}
                 </select>
 
-                <div className="my-6 border-b border-gray-100"></div>
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Filtrar Base Médica</h3>
-                
+                <div className="my-5 border-b border-gray-100"></div>
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Filtrar Base Médica</h3>
+
                 <div className="relative mb-3">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input type="text" placeholder="Escribe un nombre o apellido..." className="w-full bg-white border-2 border-gray-100 shadow-sm rounded-2xl py-3 pl-12 pr-4 text-sm font-bold outline-none focus:border-blue-500 transition-all" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input type="text" placeholder="Escribe un nombre o apellido..." className="w-full bg-gray-50 border-0 rounded-xl py-3 pl-10 pr-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -378,7 +378,7 @@ export default function PlanningPage() {
             )}
 
             {selectedDoctor && (
-              <div className={`p-8 rounded-[40px] shadow-xl border-2 transition-all ${editingId ? 'bg-orange-50 border-orange-400' : 'bg-white border-blue-600 animate-in zoom-in-95'}`}>
+              <div className={`p-6 rounded-2xl shadow-md border transition-all ${editingId ? 'bg-orange-50 border-orange-300' : 'bg-white border-blue-200 animate-in zoom-in-95'}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white flex-shrink-0 ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
@@ -407,23 +407,23 @@ export default function PlanningPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
-                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm">
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white" />
+                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white cursor-pointer">
                     <option value="Planeada">Planeada</option>
                     <option value="Realizada">Realizada</option>
                     <option value="Reagendada">Reagendada</option>
                   </select>
                 </div>
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
-                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-white border rounded-xl py-3 px-4 text-xs font-bold shadow-sm" />
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white" />
+                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white" />
                 </div>
-                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-[10px] font-black uppercase tracking-[0.2em] py-5 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3 ${editingId ? 'bg-orange-500 shadow-orange-200' : 'bg-blue-600 shadow-blue-200'}`}>
-                  {saving ? <Loader2 className="animate-spin" size={18} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
+                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-sm font-semibold py-3.5 rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2.5 ${editingId ? 'bg-orange-500 shadow-orange-600/20' : 'bg-blue-600 shadow-blue-600/20'}`}>
+                  {saving ? <Loader2 className="animate-spin" size={16} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
                 </button>
                 {editingId && (
-                  <button onClick={handleDeleteVisit} className="w-full mt-3 text-red-600 bg-red-50 py-3 rounded-xl text-[10px] font-bold uppercase hover:bg-red-100 transition-colors">Eliminar Cita</button>
+                  <button onClick={handleDeleteVisit} className="w-full mt-2.5 text-red-500 bg-red-50 py-2.5 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors">Eliminar Cita</button>
                 )}
               </div>
             )}

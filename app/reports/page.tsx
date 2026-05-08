@@ -177,23 +177,23 @@ export default function ReportsPage() {
   const isViewingAudit = isAdmin || (isManager && selectedRep !== userEmail)
 
   return (
-    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1400px] min-h-screen bg-[#F8FAFC]">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+    <div className="p-4 pt-20 lg:p-10 lg:ml-64 max-w-[1400px] min-h-screen bg-[#F5F5F7]">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">
             {isViewingAudit ? 'Auditoría Mensual' : 'Reportar Cita'}
           </h1>
-          <p className="text-gray-400 font-bold text-[10px] tracking-widest uppercase mt-2 italic">
-            {isViewingAudit ? `VISTA DE CONTROL: ${selectedRep}` : `GESTIÓN DEL DÍA: ${todayStr}`}
+          <p className="text-gray-500 text-sm mt-1">
+            {isViewingAudit ? `Vista de control · ${selectedRep}` : `Gestión del día · ${todayStr}`}
           </p>
         </div>
 
         {(isAdmin || isManager) && (
-          <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 w-full sm:w-auto">
-            <Filter size={20} className="text-indigo-600 ml-2 shrink-0"/>
-            <div className="pr-3 w-full">
-              <p className="text-[9px] font-black text-gray-300 uppercase leading-none mb-1">Filtrar Vista</p>
-              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-bold text-gray-900 bg-transparent border-none outline-none pr-4 cursor-pointer">
+          <div className="bg-white px-3 py-2.5 rounded-2xl shadow-sm border border-black/[0.06] flex items-center gap-2.5 w-full sm:w-auto">
+            <Filter size={15} className="text-indigo-500 ml-1 shrink-0"/>
+            <div className="pr-2 w-full">
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Vista activa</p>
+              <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-semibold text-gray-800 bg-transparent border-none outline-none pr-4 cursor-pointer">
                 {isAdmin ? (
                   <option value="Todos">Toda la Empresa</option>
                 ) : (
@@ -210,13 +210,13 @@ export default function ReportsPage() {
       </header>
 
       {isViewingAudit ? (
-        <div className="bg-white rounded-[40px] shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-8 border-b border-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white">
-             <div className="flex items-center gap-3">
-               <div className="w-2 h-8 bg-blue-600 rounded-full"></div>
-               <h2 className="font-black uppercase text-gray-900 text-sm tracking-tighter italic">Historial Consolidado</h2>
+        <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+             <div className="flex items-center gap-2.5">
+               <div className="w-1 h-6 bg-blue-600 rounded-full"></div>
+               <h2 className="font-semibold text-gray-900 text-sm">Historial Consolidado</h2>
              </div>
-             <button onClick={exportCSV} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-6 py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-100">
+             <button onClick={exportCSV} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-[0.98]">
                 <Download size={16}/> Descargar Excel
              </button>
           </div>

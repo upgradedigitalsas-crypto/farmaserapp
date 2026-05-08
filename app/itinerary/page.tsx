@@ -187,26 +187,25 @@ export default function ItineraryPage() {
   const days = Array.from({length: daysInMonth}, (_, i) => i + 1)
   
   return (
-    <div className="p-4 pt-24 lg:p-12 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F8FAFC]">
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+    <div className="p-4 pt-20 lg:p-10 lg:ml-64 max-w-[1600px] min-h-screen bg-[#F5F5F7]">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase italic leading-none">Itinerario</h1>
-          <p className="text-gray-500 font-medium text-sm mt-2 capitalize">{monthName} {currentYear} — Hoja de ruta mensual</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Itinerario</h1>
+          <p className="text-gray-500 text-sm mt-1 capitalize">{monthName} {currentYear} · Hoja de ruta mensual</p>
         </div>
 
-        {/* 🔥 Botón de Descarga integrado al diseño de Gerencia */}
         {(isAdmin || isManager) && (
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            <div className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3 w-full sm:w-auto">
-              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600 shrink-0"><Filter size={20}/></div>
-              <div className="pr-3 w-full">
-                <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Auditando Ruta</p>
-                <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-bold text-gray-900 bg-transparent border-none outline-none cursor-pointer appearance-none pr-4">
+            <div className="bg-white px-3 py-2.5 rounded-2xl shadow-sm border border-black/[0.06] flex items-center gap-2.5 w-full sm:w-auto">
+              <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 shrink-0"><Filter size={15}/></div>
+              <div className="pr-2 w-full">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Visitador</p>
+                <select value={selectedRep} onChange={(e) => setSelectedRep(e.target.value)} className="w-full text-sm font-semibold text-gray-800 bg-transparent border-none outline-none cursor-pointer pr-4">
                   {isAdmin ? (
-                    <option value="Todos">-- Seleccionar Visitador --</option>
+                    <option value="Todos">Seleccionar visitador</option>
                   ) : (
                     <>
-                      <option value="Todos">-- Equipo --</option>
+                      <option value="Todos">Equipo</option>
                       <option value={userEmail}>Mi Gestión Propia</option>
                     </>
                   )}
@@ -214,48 +213,48 @@ export default function ItineraryPage() {
                 </select>
               </div>
             </div>
-            <button onClick={exportCSV} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white text-[10px] font-black uppercase px-6 py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-100 h-[58px]">
-              <Download size={16}/> Descargar Excel
+            <button onClick={exportCSV} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-3 rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-[0.98]">
+              <Download size={14}/> Descargar Excel
             </button>
           </div>
         )}
       </header>
 
       {((isAdmin || isManager) && selectedRep === 'Todos') ? (
-        <div className="bg-white p-20 rounded-[40px] border-2 border-dashed border-gray-200 text-center flex flex-col items-center justify-center">
-            <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-              <CalendarDays className="text-gray-300" size={48} />
-            </div>
-            <h2 className="text-xl font-black text-gray-800 uppercase tracking-tighter mb-2">Calendario en Pausa</h2>
-            <p className="text-gray-500 font-medium text-sm max-w-sm">Para ver o gestionar un itinerario, selecciona a un visitador específico arriba.</p>
+        <div className="bg-white rounded-2xl border border-black/[0.06] shadow-sm p-16 text-center flex flex-col items-center justify-center">
+          <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mb-4">
+            <CalendarDays className="text-gray-300" size={32} />
+          </div>
+          <h2 className="text-base font-semibold text-gray-700 mb-1">Selecciona un visitador</h2>
+          <p className="text-sm text-gray-400 max-w-xs">Elige un visitador específico en el filtro superior para ver su itinerario.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Formulario Dinámico */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+          {/* Formulario */}
           {(!isAdmin && !isManager) || (selectedRep === userEmail) || isAdmin ? (
-            <div className={`p-8 rounded-[40px] shadow-sm border transition-all h-fit ${editingId ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'}`}>
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-black uppercase text-gray-900 leading-none">
+            <div className={`p-6 rounded-2xl shadow-sm border transition-all h-fit ${editingId ? 'bg-orange-50 border-orange-200' : 'bg-white border-black/[0.06]'}`}>
+              <div className="flex justify-between items-center mb-5">
+                <h3 className="text-base font-semibold text-gray-900">
                   {editingId ? 'Editar viaje' : 'Nueva ruta'}
                 </h3>
                 {editingId && (
-                  <button onClick={resetForm} className="p-2 bg-white rounded-full text-orange-500 shadow-sm hover:bg-orange-100 transition-colors">
-                    <X size={16} />
+                  <button onClick={resetForm} className="p-1.5 bg-white rounded-lg text-orange-400 shadow-sm hover:bg-orange-100">
+                    <X size={15} />
                   </button>
                 )}
               </div>
-              
-              <div className="space-y-4">
+
+              <div className="space-y-3">
                 <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="Ciudad de destino..." className="w-full bg-gray-50 border-none rounded-2xl px-12 py-4 text-sm font-bold focus:ring-2 focus:ring-blue-500 shadow-inner" />
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+                  <input type="text" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} placeholder="Ciudad de destino..." className="w-full bg-gray-50 border-0 rounded-xl pl-10 pr-4 py-3 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white" />
                 </div>
-                
-                <div className="grid grid-cols-2 gap-3">
+
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[9px] font-black text-gray-400 uppercase mb-1 ml-1">Salida</label>
-                    <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="w-full bg-gray-50 border-none rounded-xl px-3 py-3 text-[11px] font-bold" />
+                    <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1 block ml-1">Salida</label>
+                    <input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="w-full bg-gray-50 border-0 rounded-xl px-3 py-2.5 text-xs font-medium outline-none focus:ring-4 focus:ring-blue-500/10" />
                   </div>
                   <div>
                     <label className="text-[9px] font-black text-gray-400 uppercase mb-1 ml-1">Retorno</label>

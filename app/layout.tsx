@@ -30,9 +30,9 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={`flex h-screen w-full overflow-hidden relative ${pathname === '/chat' ? 'bg-[#0F172A]' : 'bg-gray-50'}`}>
-      <button 
+      <button
         onClick={() => setIsMobileMenuOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-40 p-2 bg-slate-900 text-white rounded-lg shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-40 p-2 bg-[#111318] text-white rounded-xl shadow-lg"
       >
         <Menu size={24} />
       </button>
@@ -44,7 +44,7 @@ function RootLayoutContent({ children }: { children: React.ReactNode }) {
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="fixed inset-0 bg-black/50" onClick={() => setIsMobileMenuOpen(false)}></div>
-          <div className="relative w-64 h-full bg-slate-900 shadow-xl animate-in slide-in-from-left duration-300">
+          <div className="relative w-64 h-full bg-[#111318] shadow-2xl animate-in slide-in-from-left duration-300">
             <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-4 right-4 text-white p-1">
               <X size={24} />
             </button>
