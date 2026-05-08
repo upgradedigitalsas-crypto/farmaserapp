@@ -157,7 +157,7 @@ export default function ChatPage() {
   const channelMembers = CHANNEL_MEMBERS[activeChannel] || []
 
   return (
-    <div className="flex h-full overflow-hidden bg-[#F8FAFC]">
+    <div className="flex h-full overflow-hidden bg-[#0F172A]">
 
       {/* ── PANEL IZQUIERDO (desktop) ──────────────────────────────────────── */}
       <aside className="hidden md:flex w-56 bg-[#0F172A] text-white flex-col shrink-0">
@@ -219,7 +219,7 @@ export default function ChatPage() {
       </aside>
 
       {/* ── ÁREA PRINCIPAL ────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F8FAFC]">
 
         {/* Tabs de canal (mobile) */}
         <div className="md:hidden bg-[#0F172A] pl-16 pr-2 pt-2">
