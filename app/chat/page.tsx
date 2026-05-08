@@ -296,7 +296,7 @@ export default function ChatPage() {
         </div>
 
         {/* Header del canal */}
-        <div className="bg-white border-b border-gray-100 px-4 py-3 shrink-0 shadow-sm">
+        <div className="bg-white border-b border-gray-100 pl-16 pr-4 md:px-4 py-3 shrink-0 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
               <ChannelIcon channel={activeChannel} size={16} className="text-blue-600" />
