@@ -1,9 +1,11 @@
 'use client'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
-import { db } from '@/lib/firebase'
+import { db, storage } from '@/lib/firebase'
 import { collection, addDoc, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore'
-import { Send, Hash, Loader2, Users, X } from 'lucide-react'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { Send, Hash, Loader2, Users, X, Smile, ImageIcon } from 'lucide-react'
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react'
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const CHANNEL_MANAGER: Record<string, string> = {
@@ -65,9 +67,12 @@ export default function ChatPage() {
   const [sending, setSending]         = useState(false)
   const [activeChannel, setActiveChannel] = useState('general')
   const [loading, setLoading]         = useState(true)
-  const [showMembers, setShowMembers] = useState(false)
+  const [showMembers, setShowMembers]       = useState(false)
+  const [showEmoji, setShowEmoji]           = useState(false)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const bottomRef  = useRef<HTMLDivElement>(null)
   const inputRef   = useRef<HTMLTextAreaElement>(null)
+  const fileRef    = useRef<HTMLInputElement>(null)
 
   const userEmail = user?.email?.toLowerCase().trim() || ''
   const userName  = user?.name || nameFromEmail(userEmail)
@@ -140,6 +145,37 @@ export default function ChatPage() {
   }
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
+  }
+
+  // ── Emoji ────────────────────────────────────────────────────────────────
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setText(prev => prev + emojiData.emoji)
+    setShowEmoji(false)
+    inputRef.current?.focus()
+  }
+
+  // ── Subir imagen ─────────────────────────────────────────────────────────
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { alert('Máximo 5 MB por imagen'); return }
+    setUploadingImage(true)
+    try {
+      const storageRef = ref(storage, `chat_images/${activeChannel}/${Date.now()}_${file.name}`)
+      await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(storageRef)
+      await addDoc(collection(db, 'chat_messages'), {
+        channel: activeChannel, userEmail, userName,
+        text: text.trim() || '',
+        imageUrl: url,
+        createdAt: Timestamp.now(),
+      })
+      setText('')
+    } catch { alert('Error al subir imagen') }
+    finally {
+      setUploadingImage(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   // ── Agrupar por fecha ────────────────────────────────────────────────────
@@ -334,10 +370,20 @@ export default function ChatPage() {
                             <span className="text-[10px] text-gray-400">{formatTime(msg.createdAt)}</span>
                           </div>
                         )}
-                        <div className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
+                        <div className={`rounded-2xl text-sm leading-relaxed overflow-hidden ${
                           isMe ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white text-gray-800 border border-gray-100 shadow-sm rounded-tl-sm'
                         }`}>
-                          {msg.text}
+                          {msg.imageUrl && (
+                            <img
+                              src={msg.imageUrl}
+                              alt="imagen"
+                              className="max-w-[260px] w-full rounded-2xl cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => window.open(msg.imageUrl, '_blank')}
+                            />
+                          )}
+                          {msg.text && (
+                            <p className="px-3.5 py-2">{msg.text}</p>
+                          )}
                         </div>
                         {isSameUser && (
                           <span className="text-[10px] text-gray-300 mt-0.5 px-1">{formatTime(msg.createdAt)}</span>
@@ -353,8 +399,32 @@ export default function ChatPage() {
         </div>
 
         {/* Input */}
-        <div className="bg-white border-t border-gray-100 p-3 shrink-0">
-          <div className="flex items-end gap-2 bg-gray-50 rounded-2xl px-4 py-2.5 border border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+        <div className="bg-white border-t border-gray-100 p-3 shrink-0 relative">
+          {/* Emoji Picker */}
+          {showEmoji && (
+            <div className="absolute bottom-full right-4 mb-2 z-50 shadow-2xl rounded-2xl overflow-hidden">
+              <EmojiPicker
+                theme={Theme.LIGHT}
+                onEmojiClick={handleEmojiClick}
+                width={320}
+                height={380}
+                searchPlaceholder="Buscar emoji..."
+              />
+            </div>
+          )}
+
+          <div className="flex items-end gap-2 bg-gray-50 rounded-2xl px-3 py-2.5 border border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+            {/* Botón imagen */}
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={uploadingImage}
+              className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors shrink-0 rounded-lg hover:bg-blue-50"
+              title="Adjuntar imagen"
+            >
+              {uploadingImage ? <Loader2 size={17} className="animate-spin text-blue-500" /> : <ImageIcon size={17} />}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+
             <textarea
               ref={inputRef}
               value={text}
@@ -365,6 +435,17 @@ export default function ChatPage() {
               className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 resize-none outline-none font-medium leading-relaxed max-h-28"
               style={{ minHeight: '22px' }}
             />
+
+            {/* Botón emoji */}
+            <button
+              onClick={() => setShowEmoji(!showEmoji)}
+              className={`w-8 h-8 flex items-center justify-center transition-colors shrink-0 rounded-lg ${showEmoji ? 'text-yellow-500 bg-yellow-50' : 'text-gray-400 hover:text-yellow-500 hover:bg-yellow-50'}`}
+              title="Emoji"
+            >
+              <Smile size={17} />
+            </button>
+
+            {/* Botón enviar */}
             <button onClick={handleSend} disabled={!text.trim() || sending}
               className="w-9 h-9 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 text-white rounded-xl flex items-center justify-center transition-all shrink-0 shadow-sm shadow-blue-200">
               {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}

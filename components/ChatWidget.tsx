@@ -4,7 +4,10 @@ import { usePathname } from 'next/navigation'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, orderBy, onSnapshot, Timestamp, limit } from 'firebase/firestore'
-import { MessageSquare, X, Send, Hash, Loader2 } from 'lucide-react'
+import { MessageSquare, X, Send, Hash, Loader2, Smile, ImageIcon } from 'lucide-react'
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react'
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { storage } from '@/lib/firebase'
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const CHANNEL_MANAGER: Record<string, string> = {
@@ -50,8 +53,11 @@ export default function ChatWidget() {
   const [text, setText]               = useState('')
   const [sending, setSending]         = useState(false)
   const [loading, setLoading]         = useState(false)
-  const [unread, setUnread]           = useState(0)
+  const [unread, setUnread]             = useState(0)
+  const [showEmoji, setShowEmoji]       = useState(false)
+  const [uploadingImg, setUploadingImg] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const fileRef   = useRef<HTMLInputElement>(null)
 
   const userEmail = user?.email?.toLowerCase().trim() || ''
   const userName  = user?.name || nameFromEmail(userEmail)
@@ -158,6 +164,33 @@ export default function ChatWidget() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() }
   }
 
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setText(prev => prev + emojiData.emoji)
+    setShowEmoji(false)
+  }
+
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { alert('Máximo 5 MB'); return }
+    setUploadingImg(true)
+    try {
+      const storageRef = ref(storage, `chat_images/${activeChannel}/${Date.now()}_${file.name}`)
+      await uploadBytes(storageRef, file)
+      const url = await getDownloadURL(storageRef)
+      await addDoc(collection(db, 'chat_messages'), {
+        channel: activeChannel, userEmail, userName,
+        text: text.trim() || '', imageUrl: url,
+        createdAt: Timestamp.now(),
+      })
+      setText('')
+    } catch { alert('Error al subir imagen') }
+    finally {
+      setUploadingImg(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   // ── No renderizar en login / chat / sin usuario ──────────────────────────
   if (!user || pathname === '/chat' || pathname === '/login' || pathname === '/') return null
 
@@ -194,10 +227,15 @@ export default function ChatWidget() {
                       <span className="text-[9px] text-gray-400">{formatTime(msg.createdAt)}</span>
                     </div>
                   )}
-                  <div className={`px-3 py-1.5 rounded-xl text-xs leading-relaxed ${
+                  <div className={`rounded-xl text-xs leading-relaxed overflow-hidden ${
                     isMe ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white text-gray-800 border border-gray-100 shadow-sm rounded-tl-sm'
                   }`}>
-                    {msg.text}
+                    {msg.imageUrl && (
+                      <img src={msg.imageUrl} alt="imagen"
+                        className="max-w-[200px] w-full cursor-pointer hover:opacity-90 transition-opacity"
+                        onClick={() => window.open(msg.imageUrl, '_blank')} />
+                    )}
+                    {msg.text && <p className="px-3 py-1.5">{msg.text}</p>}
                   </div>
                   {isSameUser && <span className="text-[9px] text-gray-300 mt-0.5 px-1">{formatTime(msg.createdAt)}</span>}
                 </div>
@@ -211,8 +249,27 @@ export default function ChatWidget() {
   )
 
   const InputBar = () => (
-    <div className="bg-white border-t border-gray-100 p-2.5 shrink-0">
-      <div className="flex items-end gap-2 bg-gray-50 rounded-xl px-3 py-2 border border-gray-200 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100 transition-all">
+    <div className="bg-white border-t border-gray-100 p-2.5 shrink-0 relative">
+      {/* Emoji Picker */}
+      {showEmoji && (
+        <div className="absolute bottom-full right-2 mb-1 z-50 shadow-2xl rounded-2xl overflow-hidden">
+          <EmojiPicker
+            theme={Theme.LIGHT}
+            onEmojiClick={handleEmojiClick}
+            width={300}
+            height={340}
+            searchPlaceholder="Buscar..."
+          />
+        </div>
+      )}
+      <div className="flex items-end gap-1.5 bg-gray-50 rounded-xl px-2.5 py-2 border border-gray-200 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100 transition-all">
+        {/* Imagen */}
+        <button onClick={() => fileRef.current?.click()} disabled={uploadingImg}
+          className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors shrink-0 rounded-lg hover:bg-blue-50">
+          {uploadingImg ? <Loader2 size={14} className="animate-spin text-blue-500" /> : <ImageIcon size={14} />}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
@@ -222,6 +279,13 @@ export default function ChatWidget() {
           className="flex-1 bg-transparent text-xs text-gray-800 placeholder-gray-400 resize-none outline-none font-medium leading-relaxed max-h-20"
           style={{ minHeight: '20px' }}
         />
+
+        {/* Emoji */}
+        <button onClick={() => setShowEmoji(!showEmoji)}
+          className={`w-7 h-7 flex items-center justify-center transition-colors shrink-0 rounded-lg ${showEmoji ? 'text-yellow-500' : 'text-gray-400 hover:text-yellow-500'}`}>
+          <Smile size={14} />
+        </button>
+
         <button onClick={handleSend} disabled={!text.trim() || sending}
           className="w-7 h-7 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-200 text-white rounded-lg flex items-center justify-center transition-all shrink-0">
           {sending ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
