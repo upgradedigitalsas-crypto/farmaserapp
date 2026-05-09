@@ -477,7 +477,7 @@ export default function PlanningPage() {
 
             {/* Celdas vacías antes del día 1 */}
             {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-              <div key={`pre-${i}`} className="min-h-[72px] md:min-h-[110px] border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />
+              <div key={`pre-${i}`} className="min-h-[100px] md:min-h-[140px] border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />
             ))}
 
             {/* Días del mes */}
@@ -489,15 +489,17 @@ export default function PlanningPage() {
               const isToday = d === currentDay
               const col = (firstDayOfMonth + d - 1) % 7
               const isLastCol = col === 6
+              const mobileMax = 2
+              const desktopMax = 3
 
               return (
                 <div key={d}
-                  className={`min-h-[72px] md:min-h-[110px] border-b border-r border-gray-100 p-1 md:p-1.5 flex flex-col
+                  className={`min-h-[100px] md:min-h-[140px] border-b border-r border-gray-100 p-1 md:p-1.5 flex flex-col
                     ${isLastCol ? 'border-r-0' : ''}
                     ${visitsOnDay.length > 0 ? 'bg-blue-50/20' : ''}`}>
 
                   {/* Número del día */}
-                  <div className="flex justify-center mb-0.5 md:mb-1">
+                  <div className="flex justify-center mb-1">
                     <span className={`text-[11px] md:text-xs font-bold w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full transition-colors
                       ${isToday ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
                       {d}
@@ -506,12 +508,15 @@ export default function PlanningPage() {
 
                   {/* Citas */}
                   <div className="space-y-0.5 flex-1 overflow-hidden">
-                    {visitsOnDay.slice(0, 3).map((v: any, idx: number) => {
-                      const statusColor = v.status === 'Realizada'
+                    {visitsOnDay.slice(0, desktopMax).map((v: any, idx: number) => {
+                      const isRealizada = v.status === 'Realizada'
+                      const isReagendada = v.status === 'Reagendada'
+                      const bgColor = isRealizada
                         ? 'bg-emerald-500 hover:bg-emerald-600'
-                        : v.status === 'Reagendada'
+                        : isReagendada
                         ? 'bg-orange-400 hover:bg-orange-500'
                         : 'bg-blue-600 hover:bg-blue-700'
+                      const city = v.doctorDetails?.city || ''
 
                       return (
                         <button
@@ -520,22 +525,43 @@ export default function PlanningPage() {
                             if (isAdmin || userEmail === v.userEmail) startEdit(v, false)
                             else if (isManager) startEdit(v, true)
                           }}
-                          className={`w-full text-left rounded-md px-1 py-0.5 ${statusColor} transition-colors`}
+                          className={`w-full text-left rounded-md px-1 md:px-1.5 py-1 md:py-1.5 ${bgColor} transition-colors
+                            ${idx >= mobileMax ? 'hidden md:block' : ''}`}
                         >
-                          {/* Desktop: hora + nombre */}
-                          <p className="hidden md:block text-[9px] font-bold text-white truncate leading-tight">
-                            {v.startTime ? `${v.startTime} ` : ''}{v.doctorName}
-                          </p>
-                          {/* Mobile: solo primera palabra del nombre */}
-                          <p className="md:hidden text-[8px] font-bold text-white truncate leading-tight">
-                            {v.doctorName.split(' ')[0]}
-                          </p>
+                          {/* Desktop: hora + nombre + ciudad + tag */}
+                          <div className="hidden md:block">
+                            {v.startTime && (
+                              <p className="text-[8px] font-black text-white/80 leading-none mb-0.5 flex items-center gap-0.5">
+                                <Clock size={7} className="inline shrink-0" /> {v.startTime}
+                              </p>
+                            )}
+                            <p className="text-[9px] font-bold text-white truncate leading-tight">{v.doctorName}</p>
+                            {city && <p className="text-[8px] text-white/70 truncate leading-none mt-0.5">{city}</p>}
+                            <span className={`inline-block mt-0.5 text-[7px] font-black px-1 py-px rounded leading-none
+                              ${isRealizada ? 'bg-white/20 text-white' : isReagendada ? 'bg-white/20 text-white' : 'bg-white/20 text-white'}`}>
+                              {v.status}
+                            </span>
+                          </div>
+                          {/* Mobile: hora + nombre + ciudad */}
+                          <div className="md:hidden">
+                            {v.startTime && <p className="text-[7px] font-black text-white/80 leading-none">{v.startTime}</p>}
+                            <p className="text-[8px] font-bold text-white truncate leading-tight">{v.doctorName.split(' ')[0]}</p>
+                            {city && <p className="text-[7px] text-white/70 truncate leading-none">{city.split(' ')[0]}</p>}
+                          </div>
                         </button>
                       )
                     })}
-                    {visitsOnDay.length > 3 && (
-                      <p className="text-[8px] font-bold text-blue-500 text-center">
-                        +{visitsOnDay.length - 3}
+
+                    {/* Overflow mobile */}
+                    {visitsOnDay.length > mobileMax && (
+                      <p className="md:hidden text-[7px] font-bold text-blue-500 text-center">
+                        +{visitsOnDay.length - mobileMax} más
+                      </p>
+                    )}
+                    {/* Overflow desktop */}
+                    {visitsOnDay.length > desktopMax && (
+                      <p className="hidden md:block text-[8px] font-bold text-blue-500 text-center">
+                        +{visitsOnDay.length - desktopMax} más
                       </p>
                     )}
                   </div>
@@ -545,7 +571,7 @@ export default function PlanningPage() {
 
             {/* Celdas vacías al final para completar la última fila */}
             {Array.from({ length: (7 - ((firstDayOfMonth + daysInMonth) % 7)) % 7 }).map((_,i) => (
-              <div key={`post-${i}`} className="min-h-[72px] md:min-h-[110px] border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />
+              <div key={`post-${i}`} className="min-h-[100px] md:min-h-[140px] border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />
             ))}
 
           </div>
