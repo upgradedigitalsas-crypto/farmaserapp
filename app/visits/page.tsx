@@ -198,12 +198,12 @@ export default function PlanningPage() {
           specialty: selectedDoctor.specialty || '',
           city: selectedDoctor.city || '',
           address: selectedDoctor.address || '',
-          phone: selectedDoctor.phone || '' 
+          phone: selectedDoctor.phone || ''
         },
         visitDate,
         startTime,
         endTime,
-        status,
+        status: 'Planeada', // Siempre Planeada desde este módulo; el estado lo cambia Reportes
         updatedAt: Timestamp.now()
       }
       if (locationFingerprint) visitData.locationFingerprint = locationFingerprint;
@@ -223,8 +223,10 @@ export default function PlanningPage() {
   }
 
   const startEdit = (v: any, readOnly = false) => {
-    setViewOnly(readOnly)
-    setEditingId(readOnly ? null : v.id)
+    // Si la cita ya fue reportada (no está Planeada) → siempre modo solo lectura
+    const forceReadOnly = readOnly || v.status !== 'Planeada'
+    setViewOnly(forceReadOnly)
+    setEditingId(forceReadOnly ? null : v.id)
     const vName = normalizeStr(v.doctorName);
     const vCity = normalizeStr(v.doctorDetails?.city || v.city || '');
     // Intento 1: nombre + ciudad (ambos coinciden)
@@ -428,19 +430,39 @@ export default function PlanningPage() {
                   </div>
                 )}
 
+                {/* Badge de estado — solo lectura cuando no es Planeada */}
                 {viewOnly && (
-                  <div className="mb-4 flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-2">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">👁 Modo vista — solo lectura</span>
+                  <div className={`mb-4 flex items-center gap-2 rounded-xl px-3 py-2 ${
+                    status === 'Realizada' ? 'bg-emerald-50 border border-emerald-200' :
+                    status === 'Reagendada' ? 'bg-orange-50 border border-orange-200' :
+                    'bg-slate-100'
+                  }`}>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${
+                      status === 'Realizada' ? 'text-emerald-600' :
+                      status === 'Reagendada' ? 'text-orange-500' :
+                      'text-slate-500'
+                    }`}>
+                      {status === 'Realizada' ? '✅ Realizada — reportada en el módulo de Reportes' :
+                       status === 'Reagendada' ? '🔄 Reagendada — reportada en el módulo de Reportes' :
+                       '👁 Solo lectura'}
+                    </span>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <input type="date" value={visitDate} disabled={viewOnly} onChange={e => setVisitDate(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed" />
-                  <select value={status} disabled={viewOnly} onChange={e => setStatus(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
-                    <option value="Planeada">Planeada</option>
-                    <option value="Realizada">Realizada</option>
-                    <option value="Reagendada">Reagendada</option>
-                  </select>
+                  {/* Estado solo visible en modo lectura — no se puede cambiar desde Planeación */}
+                  {viewOnly ? (
+                    <div className={`w-full rounded-xl py-3 px-4 text-sm font-semibold ${
+                      status === 'Realizada' ? 'bg-emerald-100 text-emerald-700' :
+                      status === 'Reagendada' ? 'bg-orange-100 text-orange-700' :
+                      'bg-gray-50 text-gray-500'
+                    }`}>{status}</div>
+                  ) : (
+                    <div className="w-full bg-blue-50 border border-blue-100 rounded-xl py-3 px-4 text-sm font-semibold text-blue-600">
+                      Planeada
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-5">
                   <input type="time" value={startTime} disabled={viewOnly} onChange={e => setStartTime(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed" />
@@ -521,6 +543,8 @@ export default function PlanningPage() {
                         <button
                           key={idx}
                           onClick={() => {
+                            // Planeadas: editable para el dueño/admin; solo-lectura para manager
+                            // Realizadas/Reagendadas: siempre solo-lectura (startEdit lo fuerza internamente)
                             if (isAdmin || userEmail === v.userEmail) startEdit(v, false)
                             else if (isManager) startEdit(v, true)
                           }}
