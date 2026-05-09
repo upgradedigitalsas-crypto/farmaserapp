@@ -184,6 +184,7 @@ export default function ReportsPage() {
           </p>
         </div>
 
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
         {(isAdmin || isManager) && (
           <div className="bg-white px-3 py-2.5 rounded-2xl shadow-sm border border-black/[0.06] flex items-center gap-2.5 w-full sm:w-auto">
             <Filter size={15} className="text-indigo-500 ml-1 shrink-0"/>
@@ -203,6 +204,10 @@ export default function ReportsPage() {
             </div>
           </div>
         )}
+        <button onClick={exportCSV} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-3 rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-[0.98]">
+          <Download size={14}/> Descargar Excel
+        </button>
+        </div>
       </header>
 
       {isViewingAudit ? (
