@@ -236,7 +236,13 @@ export default function PlanningPage() {
     if (freshDoctor) setSelectedDoctor({ ...freshDoctor, name: v.doctorName });
     else setSelectedDoctor({ id: v.doctorId, name: v.doctorName, ...v.doctorDetails });
     setVisitDate(v.visitDate); setStartTime(v.startTime || ''); setEndTime(v.endTime || ''); setStatus(v.status)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    // En móvil el scroll vive en main > div (overflow-y-auto), no en window
+    const scrollContainer = document.querySelector('main > div') as HTMLElement
+    if (scrollContainer) {
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   const resetForm = () => {
