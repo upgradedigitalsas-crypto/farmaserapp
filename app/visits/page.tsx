@@ -4,6 +4,7 @@ import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download, MessageSquare } from 'lucide-react'
+import { downloadCSV } from '@/lib/downloadCSV'
 
 // === LÓGICA AUTOMÁTICA DE FECHAS (MES A MES) ===
 const now = new Date();
@@ -246,18 +247,13 @@ export default function PlanningPage() {
     setSearchTerm(''); setFilterCity(''); setFilterSpecialty(''); setFilterCategory('');
   }
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     if (plannedVisits.length === 0) return alert('No hay citas agendadas para exportar.');
     let csv = "Fecha,Visitador,Medico,Especialidad,Ciudad,Direccion,Telefono,Estado,Hora Inicio,Hora Fin\n";
     plannedVisits.forEach(v => {
       csv += `${v.visitDate || ''},${v.userEmail || ''},"${v.doctorName || ''}","${v.doctorDetails?.specialty || ''}","${v.doctorDetails?.city || ''}","${v.doctorDetails?.address || ''}","${v.doctorDetails?.phone || ''}",${v.status || ''},${v.startTime || '--:--'},${v.endTime || '--:--'}\n`;
     });
-    const csvContent = "\uFEFF" + csv;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `Planeacion_${monthName}_${currentYear}.csv`);
-    link.click();
+    await downloadCSV(csv, `Planeacion_${monthName}_${currentYear}.csv`)
   }
 
   const days = Array.from({length: daysInMonth}, (_, i) => i + 1)

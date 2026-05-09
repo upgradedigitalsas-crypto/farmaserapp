@@ -4,6 +4,7 @@ import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, query, where, getDocs, doc, updateDoc, addDoc, Timestamp, orderBy } from 'firebase/firestore'
 import { User, MapPin, Plus, Minus, CheckCircle, Loader2, X, MessageSquare, Package, AlertCircle, Filter, Download, Briefcase, History } from 'lucide-react'
+import { downloadCSV } from '@/lib/downloadCSV'
 
 // 🛡️ CAPTURA DE GPS SILENCIOSA
 const getFingerprintLocation = () => {
@@ -159,18 +160,13 @@ export default function ReportsPage() {
     } catch (e) { alert('Error al guardar reporte') } finally { setSaving(false) }
   }
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     let csv = "Fecha,Visitador,Medico,Estado,Muestras,Observaciones\n";
     auditReports.forEach(r => {
       const s = r.samples?.map((x:any) => `${x.qty}x ${x.name}`).join(' | ') || 'N/A';
       csv += `${r.reportedAt?.toDate ? r.reportedAt.toDate().toLocaleDateString() : new Date(r.reportedAt).toLocaleDateString()},${r.userEmail},"${r.doctorName}",${r.status},"${s}","${r.observations || ''}"\n`;
     });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `Auditoria_Farmaser_${selectedRep}.csv`);
-    document.body.appendChild(link);
-    link.click();
+    await downloadCSV(csv, `Auditoria_Farmaser_${selectedRep}.csv`)
   }
 
   // Lógica Híbrida: ¿Muestra Auditoría o Muestra Gestión Propia?

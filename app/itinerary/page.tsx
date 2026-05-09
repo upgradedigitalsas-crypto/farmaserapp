@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
 // Añadimos 'Download' a los iconos importados
 import { Clock, Loader2, X, Edit3, Filter, MapPin, CalendarDays, Trash2, User, Download } from 'lucide-react'
+import { downloadCSV } from '@/lib/downloadCSV'
 
 // === LÓGICA AUTOMÁTICA DE FECHAS ===
 const now = new Date();
@@ -171,12 +172,7 @@ export default function ItineraryPage() {
       const obs = t.observation ? String(t.observation).replace(/"/g, '""') : '';
       csv += `"${t.city || ''}",${t.startDate || ''},${t.endDate || ''},${t.startTime || '--:--'},${t.endTime || '--:--'},"${obs}","${t.userEmail || ''}"\n`;
     });
-    const csvContent = "\uFEFF" + csv;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute("download", `Itinerario_${monthName}_${currentYear}.csv`);
-    link.click();
+    await downloadCSV(csv, `Itinerario_${monthName}_${currentYear}.csv`)
   }
 
   const getTripForDay = (day: number) => {

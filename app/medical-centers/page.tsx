@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store' 
 import { Search, MapPin, User, Star, Download, Navigation, Phone, Filter, Mail } from 'lucide-react'
+import { downloadCSV } from '@/lib/downloadCSV'
 
 export default function MedicalCentersPage() {
   const { user } = useAuthStore()
@@ -62,32 +63,22 @@ export default function MedicalCentersPage() {
     return baseDocs.filter(d => d.name.toLowerCase().includes(t) || d.specialty.toLowerCase().includes(t))
   }, [baseDocs, searchTerm])
 
-  const exportCSV = (dataToExport: any[], fileName: string) => {
+  const exportCSV = async (dataToExport: any[], fileName: string) => {
     if (dataToExport.length === 0) return alert('No hay datos para exportar.');
 
     const headers = ['Categoria', 'Nombre', 'Correo', 'Especialidad', 'Ciudad', 'Direccion', 'Telefono', 'Visitador Asignado'];
-    const rows = dataToExport.map(d => {
-      return [
-        d.category || 'N/A',
-        `"${d.name || ''}"`,
-        `"${d.email || ''}"`,
-        `"${d.specialty || ''}"`,
-        `"${d.city || ''}"`,
-        `"${d.address || ''}"`,
-        `"${d.phone || ''}"`,
-        `"${d.assignedTo || ''}"`,
-      ].join(',');
-    });
-    
-    const csvContent = "\uFEFF" + [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const rows = dataToExport.map(d => [
+      d.category || 'N/A',
+      `"${d.name || ''}"`,
+      `"${d.email || ''}"`,
+      `"${d.specialty || ''}"`,
+      `"${d.city || ''}"`,
+      `"${d.address || ''}"`,
+      `"${d.phone || ''}"`,
+      `"${d.assignedTo || ''}"`,
+    ].join(','));
+
+    await downloadCSV([headers.join(','), ...rows].join('\n'), fileName)
   }
 
   if (loading) return (
