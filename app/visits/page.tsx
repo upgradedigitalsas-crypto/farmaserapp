@@ -261,64 +261,10 @@ export default function PlanningPage() {
     if (plannedVisits.length === 0) return alert('No hay citas agendadas para exportar.');
     let csv = "Fecha,Visitador,Medico,Especialidad,Ciudad,Direccion,Telefono,Estado,Hora Inicio,Hora Fin\n";
     plannedVisits.forEach(v => {
-      csv += `${v.visitDate || ''},${v.userEmail || ''},"${v.doctorName || ''}","${v.doctorDetails?.specialty || ''}","${v.doctorDetails?.city || ''}","${v.doctorDetails?.address || ''}","${v.doctorDetails?.phone || ''}",${v.status || ''},${v.startTime || '--:--'},${v.endTime || '--:--'}\n`;
+      const liveCity = doctorCityMap.get(normalizeStr(v.doctorName)) || v.doctorDetails?.city || ''
+      csv += `${v.visitDate || ''},${v.userEmail || ''},"${v.doctorName || ''}","${v.doctorDetails?.specialty || ''}","${liveCity}","${v.doctorDetails?.address || ''}","${v.doctorDetails?.phone || ''}",${v.status || ''},${v.startTime || '--:--'},${v.endTime || '--:--'}\n`;
     });
     await downloadCSV(csv, `Planeacion_${monthName}_${currentYear}.csv`)
-  }
-
-  // ── SYNC CIUDADES (solo admin) ──────────────────────────────────────────
-  const [syncing, setSyncing] = useState(false)
-  const syncCities = async () => {
-    if (!window.confirm('¿Actualizar las ciudades de TODAS las citas en Firestore con los datos actuales del Sheet? Esta operación puede tardar varios minutos.')) return
-    setSyncing(true)
-    try {
-      // 1. Obtener mapa nombre→ciudad desde el API actual
-      const res = await fetch('/api/doctors')
-      const allDoctors: any[] = await res.json()
-
-      // Construir mapa: nombre normalizado → ciudad más frecuente (excluye ANDES)
-      const norm = (s: string) => String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim()
-      const cityCount = new Map<string, Map<string, number>>()
-      allDoctors.forEach(d => {
-        const name = norm(d.name || '')
-        const city = (d.city || '').trim()
-        if (!name || !city) return
-        if (!cityCount.has(name)) cityCount.set(name, new Map())
-        const c = cityCount.get(name)!
-        c.set(city, (c.get(city) || 0) + 1)
-      })
-      const cityMap = new Map<string, string>()
-      cityCount.forEach((counter, name) => {
-        const sorted = Array.from(counter.entries()).sort((a, b) => b[1] - a[1])
-        const best = sorted.find(([c]) => c.toUpperCase() !== 'ANDES') || sorted[0]
-        if (best) cityMap.set(name, best[0])
-      })
-
-      // 2. Traer TODAS las citas de Firestore (sin filtro de mes)
-      const { collection: col, getDocs: gd, doc: docRef, updateDoc: upd } = await import('firebase/firestore')
-      const { db: firestoreDb } = await import('@/lib/firebase')
-      const snap = await gd(col(firestoreDb, 'planned_visits'))
-      const allVisits = snap.docs.map(d => ({ id: d.id, ...d.data() as any }))
-
-      // 3. Actualizar las que tienen ciudad distinta
-      let updated = 0, skipped = 0, notFound = 0
-      for (const v of allVisits) {
-        const doctorKey = norm(v.doctorName || '')
-        const correctCity = cityMap.get(doctorKey)
-        const currentCity = (v.doctorDetails?.city || '').trim()
-        if (!correctCity) { notFound++; continue }
-        if (norm(currentCity) === norm(correctCity)) { skipped++; continue }
-        await upd(docRef(firestoreDb, 'planned_visits', v.id), { 'doctorDetails.city': correctCity })
-        updated++
-      }
-
-      alert(`✅ Sync completado\n• Actualizadas: ${updated}\n• Sin cambio: ${skipped}\n• No encontradas en Sheet: ${notFound}`)
-      fetchData()
-    } catch (e: any) {
-      alert('Error en sync: ' + e.message)
-    } finally {
-      setSyncing(false)
-    }
   }
 
   const days = Array.from({length: daysInMonth}, (_, i) => i + 1)
@@ -353,15 +299,6 @@ export default function PlanningPage() {
           <button onClick={exportCSV} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-5 py-3 rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-[0.98]">
             <Download size={14}/> Descargar Excel
           </button>
-          {isAdmin && (
-            <button
-              onClick={syncCities}
-              disabled={syncing}
-              className="w-full sm:w-auto bg-gray-700 hover:bg-gray-800 disabled:opacity-50 text-white text-xs font-semibold px-5 py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98]"
-            >
-              {syncing ? <Loader2 size={14} className="animate-spin"/> : <span>🔄</span>} Sync Ciudades
-            </button>
-          )}
         </div>
       </header>
 
@@ -577,7 +514,8 @@ export default function PlanningPage() {
                         : isReagendada
                         ? 'bg-orange-400 hover:bg-orange-500'
                         : 'bg-blue-600 hover:bg-blue-700'
-                      const city = v.doctorDetails?.city || ''
+                      // Ciudad: fuente primaria = Sheet actual, fallback = dato guardado en Firestore
+                      const city = doctorCityMap.get(normalizeStr(v.doctorName)) || v.doctorDetails?.city || ''
 
                       return (
                         <button
