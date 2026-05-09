@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download, MessageSquare, Navigation, Mail } from 'lucide-react'
+import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download, MessageSquare, Navigation, Mail, Clock } from 'lucide-react'
 import { downloadCSV } from '@/lib/downloadCSV'
 
 // === LÓGICA AUTOMÁTICA DE FECHAS (MES A MES) ===
@@ -444,7 +444,9 @@ export default function PlanningPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
             {days.map(d => {
               const currentDStr = `${currentYear}-${currentMonthStr}-${d.toString().padStart(2, '0')}`
-              const visitsOnDay = plannedVisits.filter(v => v.visitDate === currentDStr)
+              const visitsOnDay = plannedVisits
+                .filter(v => v.visitDate === currentDStr)
+                .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'))
               return (
                 <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visitsOnDay.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
                   <span className={`text-[11px] font-black mb-2 ${visitsOnDay.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / {currentMonthStr}</span>
@@ -461,6 +463,11 @@ export default function PlanningPage() {
                         }} 
                         className="w-full text-left p-2.5 rounded-xl bg-blue-600 shadow-md hover:bg-blue-700 transition-all group mb-1.5 border border-blue-500"
                       >
+                        {v.startTime && (
+                          <p className="text-[8px] font-black text-blue-200 mb-1 flex items-center gap-0.5">
+                            <Clock size={8} className="shrink-0" />{v.startTime}
+                          </p>
+                        )}
                         <p className="text-[10px] font-black text-white uppercase leading-tight line-clamp-2">
                           {v.doctorName}
                         </p>
