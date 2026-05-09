@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store' 
-import { Search, MapPin, User, Star, Download, Navigation, Phone, Filter } from 'lucide-react'
+import { Search, MapPin, User, Star, Download, Navigation, Phone, Filter, Mail } from 'lucide-react'
 
 export default function MedicalCentersPage() {
   const { user } = useAuthStore()
@@ -65,16 +65,17 @@ export default function MedicalCentersPage() {
   const exportCSV = (dataToExport: any[], fileName: string) => {
     if (dataToExport.length === 0) return alert('No hay datos para exportar.');
 
-    const headers = ['ID', 'Categoria', 'Nombre', 'Especialidad', 'Ciudad', 'Direccion', 'Telefono'];
+    const headers = ['Categoria', 'Nombre', 'Correo', 'Especialidad', 'Ciudad', 'Direccion', 'Telefono', 'Visitador Asignado'];
     const rows = dataToExport.map(d => {
       return [
-        d.id,
         d.category || 'N/A',
         `"${d.name || ''}"`,
+        `"${d.email || ''}"`,
         `"${d.specialty || ''}"`,
         `"${d.city || ''}"`,
-        `"${d.address || 'Principal'}"`,
-        `"${d.phone || ''}"` 
+        `"${d.address || ''}"`,
+        `"${d.phone || ''}"`,
+        `"${d.assignedTo || ''}"`,
       ].join(',');
     });
     
@@ -190,6 +191,13 @@ export default function MedicalCentersPage() {
                     <div className="flex items-center gap-1 text-green-600">
                       <Phone size={12} fill="currentColor" className="opacity-80" />
                       <span className="text-[11px] font-black uppercase">{doc.phone}</span>
+                    </div>
+                  )}
+
+                  {doc.email && (
+                    <div className="flex items-center gap-1 text-blue-500">
+                      <Mail size={11} />
+                      <span className="text-[11px] font-medium">{doc.email}</span>
                     </div>
                   )}
 

@@ -31,13 +31,14 @@ export async function getDoctorsFromSheet() {
     return rows.map((row) => ({
       id: `${(row[11]||'').trim()}_${(row[2]||'').trim()}_${(row[6]||'').trim()}`.toLowerCase().replace(/\s+/g,'_') || Math.random().toString(),
       visitadorId: row[0] || '',
-      name: row[2] || '',                    
-      address: row[4] || '',  // Columna E (Dirección)             
-      phone: row[5] || '',    // <-- ¡AQUÍ ESTÁ LA MAGIA! COLUMNA F (Teléfono)
-      city: row[6] || '',                    
-      specialty: row[7] || '',               
-      category: row[8] || '',                
-      assignedTo: row[11] || '',             
+      email:    row[1] || '',   // Columna B (Correo del médico/centro)
+      name:     row[2] || '',
+      address:  row[4] || '',   // Columna E (Dirección)
+      phone:    row[5] || '',   // Columna F (Teléfono)
+      city:     row[6] || '',
+      specialty: row[7] || '',
+      category:  row[8] || '',
+      assignedTo: row[11] || '',
     }))
   } catch (error: any) {
     console.error('Error en Sheets:', error.message || error)
