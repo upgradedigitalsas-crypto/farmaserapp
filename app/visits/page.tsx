@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuthStore, TEAM_MAPPING } from '@/lib/store'
 import { db } from '@/lib/firebase'
 import { collection, addDoc, query, where, getDocs, Timestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore'
-import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download, MessageSquare } from 'lucide-react'
+import { Search, User, Filter, MapPin, Star, Tag, Loader2, X, Pencil, Phone, Download, MessageSquare, Navigation, Mail } from 'lucide-react'
 import { downloadCSV } from '@/lib/downloadCSV'
 
 // === LÓGICA AUTOMÁTICA DE FECHAS (MES A MES) ===
@@ -386,6 +386,20 @@ export default function PlanningPage() {
                         <span>{selectedDoctor.specialty}</span>
                         <span className="opacity-20">|</span>
                         <span>{selectedDoctor.city}</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5 mt-1.5">
+                        {selectedDoctor.address && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                            <Navigation size={10} className="text-gray-400 shrink-0" />
+                            <span>{selectedDoctor.address}</span>
+                          </div>
+                        )}
+                        {selectedDoctor.email && (
+                          <div className="flex items-center gap-1.5 text-[10px] text-blue-500">
+                            <Mail size={10} className="shrink-0" />
+                            <span>{selectedDoctor.email}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
