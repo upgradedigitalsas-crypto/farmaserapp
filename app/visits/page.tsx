@@ -522,7 +522,7 @@ export default function PlanningPage() {
                             if (isAdmin || userEmail === v.userEmail) startEdit(v, false)
                             else if (isManager) startEdit(v, true)
                           }}
-                          className={`w-full text-left rounded-md px-1 md:px-1.5 py-1 md:py-1.5 ${bgColor} transition-colors`}
+                          className={`w-full text-left rounded-md px-1.5 md:px-1.5 py-1.5 md:py-1.5 ${bgColor} transition-colors`}
                         >
                           {/* Desktop: hora + nombre + ciudad + tag */}
                           <div className="hidden md:block">
@@ -537,11 +537,15 @@ export default function PlanningPage() {
                               {v.status}
                             </span>
                           </div>
-                          {/* Mobile: hora + nombre + ciudad */}
-                          <div className="md:hidden">
-                            {v.startTime && <p className="text-[7px] font-black text-white/80 leading-none">{v.startTime}</p>}
-                            <p className="text-[8px] font-bold text-white truncate leading-tight">{v.doctorName.split(' ')[0]}</p>
-                            {city && <p className="text-[7px] text-white/70 truncate leading-none">{city.split(' ')[0]}</p>}
+                          {/* Mobile: hora + nombre + ciudad — fuentes legibles con truncate */}
+                          <div className="md:hidden space-y-px">
+                            {v.startTime && (
+                              <p className="text-[9px] font-black text-white/90 leading-none">{v.startTime}</p>
+                            )}
+                            <p className="text-[9px] font-bold text-white truncate leading-snug">{v.doctorName}</p>
+                            {city && (
+                              <p className="text-[8px] text-white/75 truncate leading-none">{city}</p>
+                            )}
                           </div>
                         </button>
                       )
