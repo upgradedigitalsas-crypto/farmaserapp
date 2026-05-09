@@ -537,14 +537,14 @@ export default function PlanningPage() {
                               {v.status}
                             </span>
                           </div>
-                          {/* Mobile: hora + nombre + ciudad — fuentes legibles con truncate */}
+                          {/* Mobile: hora + nombre completo en 2 líneas + ciudad */}
                           <div className="md:hidden space-y-px">
                             {v.startTime && (
-                              <p className="text-[9px] font-black text-white/90 leading-none">{v.startTime}</p>
+                              <p className="text-[8px] font-black text-white/90 leading-none">{v.startTime}</p>
                             )}
-                            <p className="text-[9px] font-bold text-white truncate leading-snug">{v.doctorName}</p>
+                            <p className="text-[8px] font-bold text-white leading-[1.2] break-words hyphens-auto">{v.doctorName}</p>
                             {city && (
-                              <p className="text-[8px] text-white/75 truncate leading-none">{city}</p>
+                              <p className="text-[7px] text-white/75 leading-none font-semibold">{city}</p>
                             )}
                           </div>
                         </button>
