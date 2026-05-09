@@ -59,6 +59,7 @@ export default function PlanningPage() {
   const [endTime, setEndTime] = useState('')
   const [status, setStatus] = useState('Planeada')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [viewOnly, setViewOnly] = useState(false)
 
   const userEmail = user?.email?.toLowerCase().trim() || ''
   const isAdmin = user?.role === 'admin' || userEmail === 'entrenamientofarmaser@gmail.com'
@@ -219,8 +220,9 @@ export default function PlanningPage() {
     } catch (e) { alert('Error al eliminar') } finally { setSaving(false) }
   }
 
-  const startEdit = (v: any) => {
-    setEditingId(v.id)
+  const startEdit = (v: any, readOnly = false) => {
+    setViewOnly(readOnly)
+    setEditingId(readOnly ? null : v.id)
     const vName = normalizeStr(v.doctorName);
     const vCity = normalizeStr(v.doctorDetails?.city || v.city || '');
     // Intento 1: nombre + ciudad (ambos coinciden)
@@ -246,7 +248,7 @@ export default function PlanningPage() {
   }
 
   const resetForm = () => {
-    setEditingId(null); setSelectedDoctor(null); setVisitDate(now.toISOString().split('T')[0]); setStartTime(''); setEndTime('')
+    setEditingId(null); setSelectedDoctor(null); setViewOnly(false); setVisitDate(now.toISOString().split('T')[0]); setStartTime(''); setEndTime('')
   }
 
   const clearFilters = () => {
@@ -380,7 +382,7 @@ export default function PlanningPage() {
             )}
 
             {selectedDoctor && (
-              <div className={`p-6 rounded-2xl shadow-md border transition-all ${editingId ? 'bg-orange-50 border-orange-300' : 'bg-white border-blue-200 animate-in zoom-in-95'}`}>
+              <div className={`p-6 rounded-2xl shadow-md border transition-all ${viewOnly ? 'bg-slate-50 border-slate-200' : editingId ? 'bg-orange-50 border-orange-300' : 'bg-white border-blue-200 animate-in zoom-in-95'}`}>
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white flex-shrink-0 ${editingId ? 'bg-orange-500' : 'bg-blue-600'}`}><User size={24} /></div>
@@ -423,23 +425,33 @@ export default function PlanningPage() {
                   </div>
                 )}
 
+                {viewOnly && (
+                  <div className="mb-4 flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-2">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">👁 Modo vista — solo lectura</span>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                  <input type="date" value={visitDate} onChange={e => setVisitDate(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white" />
-                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white cursor-pointer">
+                  <input type="date" value={visitDate} disabled={viewOnly} onChange={e => setVisitDate(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed" />
+                  <select value={status} disabled={viewOnly} onChange={e => setStatus(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed">
                     <option value="Planeada">Planeada</option>
                     <option value="Realizada">Realizada</option>
                     <option value="Reagendada">Reagendada</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-5">
-                  <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white" />
-                  <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white" />
+                  <input type="time" value={startTime} disabled={viewOnly} onChange={e => setStartTime(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed" />
+                  <input type="time" value={endTime} disabled={viewOnly} onChange={e => setEndTime(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed" />
                 </div>
-                <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-sm font-semibold py-3.5 rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2.5 ${editingId ? 'bg-orange-500 shadow-orange-600/20' : 'bg-blue-600 shadow-blue-600/20'}`}>
-                  {saving ? <Loader2 className="animate-spin" size={16} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
-                </button>
-                {editingId && (
-                  <button onClick={handleDeleteVisit} className="w-full mt-2.5 text-red-500 bg-red-50 py-2.5 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors">Eliminar Cita</button>
+                {!viewOnly && (
+                  <>
+                    <button disabled={saving} onClick={handleSaveVisit} className={`w-full text-white text-sm font-semibold py-3.5 rounded-xl shadow-md transition-all active:scale-[0.98] flex items-center justify-center gap-2.5 ${editingId ? 'bg-orange-500 shadow-orange-600/20' : 'bg-blue-600 shadow-blue-600/20'}`}>
+                      {saving ? <Loader2 className="animate-spin" size={16} /> : editingId ? 'Actualizar Cita' : 'Agendar Cita'}
+                    </button>
+                    {editingId && (
+                      <button onClick={handleDeleteVisit} className="w-full mt-2.5 text-red-500 bg-red-50 py-2.5 rounded-xl text-xs font-semibold hover:bg-red-100 transition-colors">Eliminar Cita</button>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -462,10 +474,12 @@ export default function PlanningPage() {
                         key={`v-${idx}`} 
                         onClick={() => {
                           if (isAdmin || userEmail === v.userEmail) {
-                            startEdit(v)
-                          } else {
-                            alert(`Esta cita pertenece a ${v.userEmail}. No puedes editarla.`);
+                            startEdit(v, false)
+                          } else if (isManager) {
+                            // Gerentes: solo lectura de su equipo
+                            startEdit(v, true)
                           }
+                          // Visitadores ajenos: no hacer nada
                         }} 
                         className="w-full text-left p-2.5 rounded-xl bg-blue-600 shadow-md hover:bg-blue-700 transition-all group mb-1.5 border border-blue-500"
                       >
