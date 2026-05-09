@@ -13,6 +13,8 @@ const currentMonthStr = (now.getMonth() + 1).toString().padStart(2, '0');
 const currentYear = now.getFullYear();
 const monthName = now.toLocaleString('es-ES', { month: 'long' });
 const daysInMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
+const firstDayOfMonth = new Date(currentYear, now.getMonth(), 1).getDay(); // 0=Dom
+const currentDay = now.getDate();
 const filterKey = `${currentYear}-${currentMonthStr}`;
 
 export default function ItineraryPage() {
@@ -292,48 +294,83 @@ export default function ItineraryPage() {
             </div>
           )}
 
-          {/* Calendario con Estilo Visual Restaurado */}
+          {/* ── CALENDARIO ESTILO APPLE ── */}
           <div className="lg:col-span-2">
-            <div className="grid grid-cols-4 md:grid-cols-7 gap-2 lg:gap-3">
-              {days.map(d => {
-                const trip = getTripForDay(d)
-                return (
-                  <div
-                    key={d}
-                    className={`min-h-[88px] md:min-h-[120px] p-2.5 md:p-3 rounded-[28px] border-2 transition-all flex flex-col relative overflow-hidden ${
-                      trip ? 'border-blue-600 bg-white shadow-xl scale-[1.02] z-10' : 'bg-white border-gray-100 shadow-sm'
-                    }`}
-                  >
-                    <span className={`text-[10px] font-black mb-2 ${trip ? 'text-blue-600' : 'text-gray-300'}`}>
-                      {d.toString().padStart(2, '0')}
-                    </span>
-                    
-                    {trip && (
-                      <button 
-                        onClick={() => ((isAdmin || userEmail === selectedRep || (!isAdmin && !isManager)) && startEdit(trip))} 
-                        className="flex-1 flex flex-col items-center justify-center text-center w-full"
-                      >
-                        {/* Píldora de Ciudad Sólida Azul */}
-                        <div className="bg-blue-600 px-3 py-1.5 rounded-full shadow-md w-full mb-2">
-                          <p className="text-[9px] font-black text-white uppercase truncate">
-                            {trip.city}
-                          </p>
-                        </div>
-                        
-                        {/* Horario con Icono */}
-                        <div className="flex items-center gap-1 text-gray-400">
-                          <Clock size={10} className="text-blue-500 shrink-0" />
-                          <span className="text-[8px] font-black whitespace-nowrap">
-                            {trip.startTime} - {trip.endTime}
-                          </span>
-                        </div>
-                      </button>
-                    )}
-                    
-                    {trip && <div className="absolute -right-1 -bottom-1 opacity-[0.03] text-blue-900"><MapPin size={48} /></div>}
+            <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] overflow-hidden">
+
+              {/* Cabecera días de la semana */}
+              <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50/60">
+                {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d => (
+                  <div key={d} className="py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                    {d}
                   </div>
-                )
-              })}
+                ))}
+              </div>
+
+              {/* Celdas del mes */}
+              <div className="grid grid-cols-7">
+
+                {/* Celdas vacías antes del día 1 */}
+                {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                  <div key={`pre-${i}`} className="min-h-[80px] md:min-h-[110px] border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />
+                ))}
+
+                {/* Días del mes */}
+                {days.map(d => {
+                  const trip = getTripForDay(d)
+                  const isToday = d === currentDay
+                  const col = (firstDayOfMonth + d - 1) % 7
+                  const isLastCol = col === 6
+
+                  return (
+                    <div
+                      key={d}
+                      className={`min-h-[80px] md:min-h-[110px] border-b border-r border-gray-100 p-1 md:p-1.5 flex flex-col
+                        ${isLastCol ? 'border-r-0' : ''}
+                        ${trip ? 'bg-blue-50/25' : ''}`}
+                    >
+                      {/* Número del día */}
+                      <div className="flex justify-center mb-1">
+                        <span className={`text-[11px] md:text-xs font-bold w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full transition-colors
+                          ${isToday ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                          {d}
+                        </span>
+                      </div>
+
+                      {/* Pill del trip */}
+                      {trip && (
+                        <button
+                          onClick={() => (isAdmin || userEmail === selectedRep || (!isAdmin && !isManager)) && startEdit(trip)}
+                          className="w-full text-left rounded-md px-1.5 py-1.5 bg-blue-600 hover:bg-blue-700 transition-colors"
+                        >
+                          {/* Desktop */}
+                          <div className="hidden md:block">
+                            <p className="text-[9px] font-black text-white truncate leading-tight uppercase">{trip.city}</p>
+                            <div className="flex items-center gap-0.5 mt-0.5">
+                              <Clock size={7} className="text-white/70 shrink-0" />
+                              <p className="text-[8px] text-white/80 font-bold leading-none whitespace-nowrap">{trip.startTime} – {trip.endTime}</p>
+                            </div>
+                            {trip.observation && (
+                              <p className="text-[7px] text-white/60 truncate leading-none mt-0.5 italic">{trip.observation}</p>
+                            )}
+                          </div>
+                          {/* Mobile */}
+                          <div className="md:hidden space-y-px">
+                            <p className="text-[9px] font-black text-white truncate leading-tight uppercase">{trip.city}</p>
+                            <p className="text-[8px] text-white/80 font-bold leading-none whitespace-nowrap">{trip.startTime}–{trip.endTime}</p>
+                          </div>
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* Celdas vacías al final para completar la última fila */}
+                {Array.from({ length: (7 - ((firstDayOfMonth + daysInMonth) % 7)) % 7 }).map((_, i) => (
+                  <div key={`post-${i}`} className="min-h-[80px] md:min-h-[110px] border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />
+                ))}
+
+              </div>
             </div>
           </div>
         </div>
