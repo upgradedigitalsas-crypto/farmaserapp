@@ -489,9 +489,6 @@ export default function PlanningPage() {
               const isToday = d === currentDay
               const col = (firstDayOfMonth + d - 1) % 7
               const isLastCol = col === 6
-              const mobileMax = 2
-              const desktopMax = 3
-
               return (
                 <div key={d}
                   className={`min-h-[100px] md:min-h-[140px] border-b border-r border-gray-100 p-1 md:p-1.5 flex flex-col
@@ -506,9 +503,9 @@ export default function PlanningPage() {
                     </span>
                   </div>
 
-                  {/* Citas */}
-                  <div className="space-y-0.5 flex-1 overflow-hidden">
-                    {visitsOnDay.slice(0, desktopMax).map((v: any, idx: number) => {
+                  {/* Citas — sin límite, la celda crece con el contenido */}
+                  <div className="space-y-0.5">
+                    {visitsOnDay.map((v: any, idx: number) => {
                       const isRealizada = v.status === 'Realizada'
                       const isReagendada = v.status === 'Reagendada'
                       const bgColor = isRealizada
@@ -525,8 +522,7 @@ export default function PlanningPage() {
                             if (isAdmin || userEmail === v.userEmail) startEdit(v, false)
                             else if (isManager) startEdit(v, true)
                           }}
-                          className={`w-full text-left rounded-md px-1 md:px-1.5 py-1 md:py-1.5 ${bgColor} transition-colors
-                            ${idx >= mobileMax ? 'hidden md:block' : ''}`}
+                          className={`w-full text-left rounded-md px-1 md:px-1.5 py-1 md:py-1.5 ${bgColor} transition-colors`}
                         >
                           {/* Desktop: hora + nombre + ciudad + tag */}
                           <div className="hidden md:block">
@@ -537,8 +533,7 @@ export default function PlanningPage() {
                             )}
                             <p className="text-[9px] font-bold text-white truncate leading-tight">{v.doctorName}</p>
                             {city && <p className="text-[8px] text-white/70 truncate leading-none mt-0.5">{city}</p>}
-                            <span className={`inline-block mt-0.5 text-[7px] font-black px-1 py-px rounded leading-none
-                              ${isRealizada ? 'bg-white/20 text-white' : isReagendada ? 'bg-white/20 text-white' : 'bg-white/20 text-white'}`}>
+                            <span className="inline-block mt-0.5 text-[7px] font-black px-1 py-px rounded leading-none bg-white/20 text-white">
                               {v.status}
                             </span>
                           </div>
@@ -551,19 +546,6 @@ export default function PlanningPage() {
                         </button>
                       )
                     })}
-
-                    {/* Overflow mobile */}
-                    {visitsOnDay.length > mobileMax && (
-                      <p className="md:hidden text-[7px] font-bold text-blue-500 text-center">
-                        +{visitsOnDay.length - mobileMax} más
-                      </p>
-                    )}
-                    {/* Overflow desktop */}
-                    {visitsOnDay.length > desktopMax && (
-                      <p className="hidden md:block text-[8px] font-bold text-blue-500 text-center">
-                        +{visitsOnDay.length - desktopMax} más
-                      </p>
-                    )}
                   </div>
                 </div>
               )
