@@ -12,6 +12,8 @@ const currentMonthStr = (now.getMonth() + 1).toString().padStart(2, '0');
 const currentYear = now.getFullYear();
 const monthName = now.toLocaleString('es-ES', { month: 'long' });
 const daysInMonth = new Date(currentYear, now.getMonth() + 1, 0).getDate();
+const firstDayOfMonth = new Date(currentYear, now.getMonth(), 1).getDay(); // 0=Dom
+const currentDay = now.getDate();
 const filterKey = `${currentYear}-${currentMonthStr}`; 
 
 const getFingerprintLocation = () => {
@@ -458,58 +460,94 @@ export default function PlanningPage() {
           </div>
         )}
 
-        <div className="w-full">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 lg:gap-3">
+        {/* ── CALENDARIO ESTILO APPLE ─────────────────────────────────── */}
+        <div className="w-full bg-white rounded-2xl shadow-sm border border-black/[0.06] overflow-hidden">
+
+          {/* Cabecera días de la semana */}
+          <div className="grid grid-cols-7 border-b border-gray-100 bg-gray-50/60">
+            {['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'].map(d => (
+              <div key={d} className="py-2 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+                {d}
+              </div>
+            ))}
+          </div>
+
+          {/* Celdas del mes */}
+          <div className="grid grid-cols-7">
+
+            {/* Celdas vacías antes del día 1 */}
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+              <div key={`pre-${i}`} className="min-h-[72px] md:min-h-[110px] border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />
+            ))}
+
+            {/* Días del mes */}
             {days.map(d => {
-              const currentDStr = `${currentYear}-${currentMonthStr}-${d.toString().padStart(2, '0')}`
+              const currentDStr = `${currentYear}-${currentMonthStr}-${d.toString().padStart(2,'0')}`
               const visitsOnDay = plannedVisits
                 .filter(v => v.visitDate === currentDStr)
-                .sort((a, b) => (a.startTime || '00:00').localeCompare(b.startTime || '00:00'))
+                .sort((a,b) => (a.startTime||'00:00').localeCompare(b.startTime||'00:00'))
+              const isToday = d === currentDay
+              const col = (firstDayOfMonth + d - 1) % 7
+              const isLastCol = col === 6
+
               return (
-                <div key={d} className={`bg-white p-3 lg:p-4 rounded-[30px] border transition-all min-h-[120px] lg:min-h-[150px] flex flex-col relative ${visitsOnDay.length > 0 ? 'border-blue-500 ring-2 ring-blue-50 bg-blue-50/20' : 'border-gray-100 shadow-sm'}`}>
-                  <span className={`text-[11px] font-black mb-2 ${visitsOnDay.length > 0 ? 'text-blue-600' : 'text-gray-300'}`}>{d.toString().padStart(2, '0')} / {currentMonthStr}</span>
-                  <div className="space-y-1.5 overflow-y-auto custom-scrollbar pr-1 flex-1">
-                    {visitsOnDay.map((v: any, idx: number) => (
-                      <button 
-                        key={`v-${idx}`} 
-                        onClick={() => {
-                          if (isAdmin || userEmail === v.userEmail) {
-                            startEdit(v, false)
-                          } else if (isManager) {
-                            // Gerentes: solo lectura de su equipo
-                            startEdit(v, true)
-                          }
-                          // Visitadores ajenos: no hacer nada
-                        }} 
-                        className="w-full text-left p-2.5 rounded-xl bg-blue-600 shadow-md hover:bg-blue-700 transition-all group mb-1.5 border border-blue-500"
-                      >
-                        {v.startTime && (
-                          <p className="text-[8px] font-black text-blue-200 mb-1 flex items-center gap-0.5">
-                            <Clock size={8} className="shrink-0" />{v.startTime}
+                <div key={d}
+                  className={`min-h-[72px] md:min-h-[110px] border-b border-r border-gray-100 p-1 md:p-1.5 flex flex-col
+                    ${isLastCol ? 'border-r-0' : ''}
+                    ${visitsOnDay.length > 0 ? 'bg-blue-50/20' : ''}`}>
+
+                  {/* Número del día */}
+                  <div className="flex justify-center mb-0.5 md:mb-1">
+                    <span className={`text-[11px] md:text-xs font-bold w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full transition-colors
+                      ${isToday ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                      {d}
+                    </span>
+                  </div>
+
+                  {/* Citas */}
+                  <div className="space-y-0.5 flex-1 overflow-hidden">
+                    {visitsOnDay.slice(0, 3).map((v: any, idx: number) => {
+                      const statusColor = v.status === 'Realizada'
+                        ? 'bg-emerald-500 hover:bg-emerald-600'
+                        : v.status === 'Reagendada'
+                        ? 'bg-orange-400 hover:bg-orange-500'
+                        : 'bg-blue-600 hover:bg-blue-700'
+
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            if (isAdmin || userEmail === v.userEmail) startEdit(v, false)
+                            else if (isManager) startEdit(v, true)
+                          }}
+                          className={`w-full text-left rounded-md px-1 py-0.5 ${statusColor} transition-colors`}
+                        >
+                          {/* Desktop: hora + nombre */}
+                          <p className="hidden md:block text-[9px] font-bold text-white truncate leading-tight">
+                            {v.startTime ? `${v.startTime} ` : ''}{v.doctorName}
                           </p>
-                        )}
-                        <p className="text-[10px] font-black text-white uppercase leading-tight line-clamp-2">
-                          {v.doctorName}
-                        </p>
-                        <div className="flex justify-between items-center mt-2">
-                          <p className="text-[8px] font-bold text-blue-100 uppercase italic truncate max-w-[70%]">
-                            {doctorCityMap.get(normalizeStr(v.doctorName)) || v.doctorDetails?.city || '---'}
+                          {/* Mobile: solo primera palabra del nombre */}
+                          <p className="md:hidden text-[8px] font-bold text-white truncate leading-tight">
+                            {v.doctorName.split(' ')[0]}
                           </p>
-                          <span className="text-[7px] font-black px-1.5 py-0.5 rounded-md uppercase bg-white/20 text-white border border-white/10">
-                            {v.status}
-                          </span>
-                        </div>
-                        {(isAdmin || isManager) && selectedRep === 'Todos' && (
-                          <p className="text-[7px] font-black text-blue-200 mt-1 pt-1 border-t border-white/10 truncate">
-                            {v.userEmail.split('@')[0]}
-                          </p>
-                        )}
-                      </button>
-                    ))}
+                        </button>
+                      )
+                    })}
+                    {visitsOnDay.length > 3 && (
+                      <p className="text-[8px] font-bold text-blue-500 text-center">
+                        +{visitsOnDay.length - 3}
+                      </p>
+                    )}
                   </div>
                 </div>
               )
             })}
+
+            {/* Celdas vacías al final para completar la última fila */}
+            {Array.from({ length: (7 - ((firstDayOfMonth + daysInMonth) % 7)) % 7 }).map((_,i) => (
+              <div key={`post-${i}`} className="min-h-[72px] md:min-h-[110px] border-b border-r border-gray-100 bg-gray-50/40 last:border-r-0" />
+            ))}
+
           </div>
         </div>
       </div>
