@@ -42,7 +42,9 @@ export default function ReportsPage() {
   const [status, setStatus] = useState('Realizada')
   const [samples, setSamples] = useState<any[]>([]) 
   
-  const todayStr = new Date().toISOString().slice(0, 10)
+  // Fecha en hora Colombia (UTC-5) — toISOString() daría UTC y después de las 7pm
+  // mostraría el día siguiente, causando que se reporten citas del día equivocado.
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' })
 
   // === FASE 3.0: Variables de Jerarquía y Blindaje Caché ===
   const userEmail = user?.email?.toLowerCase().trim() || ''
