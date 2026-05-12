@@ -203,7 +203,7 @@ export default function PlanningPage() {
         visitDate,
         startTime,
         endTime,
-        status: 'Planeada', // Siempre Planeada desde este módulo; el estado lo cambia Reportes
+        status: isAdmin ? status : 'Planeada', // Admin puede asignar cualquier estado; visitador siempre Planeada
         updatedAt: Timestamp.now()
       }
       if (locationFingerprint) visitData.locationFingerprint = locationFingerprint;
@@ -223,8 +223,8 @@ export default function PlanningPage() {
   }
 
   const startEdit = (v: any, readOnly = false) => {
-    // Si la cita ya fue reportada (no está Planeada) → siempre modo solo lectura
-    const forceReadOnly = readOnly || v.status !== 'Planeada'
+    // Admin puede editar cualquier cita sin restricción de estado
+    const forceReadOnly = isAdmin ? false : (readOnly || v.status !== 'Planeada')
     setViewOnly(forceReadOnly)
     setEditingId(forceReadOnly ? null : v.id)
     const vName = normalizeStr(v.doctorName);
@@ -451,8 +451,14 @@ export default function PlanningPage() {
 
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <input type="date" value={visitDate} disabled={viewOnly} onChange={e => setVisitDate(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed" />
-                  {/* Estado solo visible en modo lectura — no se puede cambiar desde Planeación */}
-                  {viewOnly ? (
+                  {/* Estado: admin puede cambiar cualquier estado; visitador solo ve badge */}
+                  {isAdmin && !viewOnly ? (
+                    <select value={status} onChange={e => setStatus(e.target.value)} className="w-full bg-gray-50 border-0 rounded-xl py-3 px-4 text-sm font-medium outline-none focus:ring-4 focus:ring-blue-500/10 focus:bg-white cursor-pointer">
+                      <option value="Planeada">Planeada</option>
+                      <option value="Realizada">Realizada</option>
+                      <option value="Reagendada">Reagendada</option>
+                    </select>
+                  ) : viewOnly ? (
                     <div className={`w-full rounded-xl py-3 px-4 text-sm font-semibold ${
                       status === 'Realizada' ? 'bg-emerald-100 text-emerald-700' :
                       status === 'Reagendada' ? 'bg-orange-100 text-orange-700' :
