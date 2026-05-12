@@ -203,7 +203,7 @@ export default function PlanningPage() {
         visitDate,
         startTime,
         endTime,
-        status: isAdmin ? status : 'Planeada', // Admin puede asignar cualquier estado; visitador siempre Planeada
+        status: isAdmin ? status : 'Planeada', // Admin: cualquier estado; manager/visitador: siempre Planeada
         updatedAt: Timestamp.now()
       }
       if (locationFingerprint) visitData.locationFingerprint = locationFingerprint;
@@ -223,7 +223,9 @@ export default function PlanningPage() {
   }
 
   const startEdit = (v: any, readOnly = false) => {
-    // Admin puede editar cualquier cita sin restricción de estado
+    // Admin: edita todo sin restricción
+    // Manager: edita Planeadas de su equipo; read-only si ya fue reportada
+    // Visitador: edita sus propias Planeadas; read-only si ya fue reportada
     const forceReadOnly = isAdmin ? false : (readOnly || v.status !== 'Planeada')
     setViewOnly(forceReadOnly)
     setEditingId(forceReadOnly ? null : v.id)
@@ -549,10 +551,10 @@ export default function PlanningPage() {
                         <button
                           key={idx}
                           onClick={() => {
-                            // Planeadas: editable para el dueño/admin; solo-lectura para manager
-                            // Realizadas/Reagendadas: siempre solo-lectura (startEdit lo fuerza internamente)
-                            if (isAdmin || userEmail === v.userEmail) startEdit(v, false)
-                            else if (isManager) startEdit(v, true)
+                            // Admin: edita cualquier cita sin restricción
+                            // Manager: edita Planeadas de su equipo; startEdit fuerza readOnly si no es Planeada
+                            // Visitador: edita solo sus propias Planeadas
+                            startEdit(v, false)
                           }}
                           className={`w-full text-left rounded-md px-1.5 md:px-1.5 py-1.5 md:py-1.5 ${bgColor} transition-colors`}
                         >
