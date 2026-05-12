@@ -56,6 +56,31 @@ export default function ReportsPage() {
     fetch('/api/products').then(res => res.json()).then(data => setProducts(Array.isArray(data) ? data : []))
   }, [])
 
+  // ── Mapas en tiempo real desde Sheet (fuente de verdad) ──────────────────
+  const normalizeStr = (s: any) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+
+  const doctorInfoMap = useMemo(() => {
+    const map = new Map<string, { city: string; address: string; specialty: string }>()
+    doctors.forEach((d: any) => {
+      if (d.name) map.set(normalizeStr(d.name), {
+        city:      d.city      || '',
+        address:   d.address   || '',
+        specialty: d.specialty || '',
+      })
+    })
+    return map
+  }, [doctors])
+
+  // Helper: devuelve datos live del Sheet, con fallback al dato guardado en Firestore
+  const liveInfo = (visit: any) => {
+    const live = doctorInfoMap.get(normalizeStr(visit.doctorName))
+    return {
+      city:      live?.city      || visit.doctorDetails?.city      || '',
+      address:   live?.address   || visit.doctorDetails?.address   || '',
+      specialty: live?.specialty || visit.doctorDetails?.specialty || '',
+    }
+  }
+
   // Lista para el Dropdown (Solo Admin y Manager)
   const repsList = useMemo(() => {
     if (isAdmin) {
@@ -285,9 +310,9 @@ export default function ReportsPage() {
                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold text-gray-400 uppercase">
                                  <span className="text-blue-600 shrink-0">{v.startTime}</span>
                                  <span>•</span>
-                                 <span className="truncate">{v.doctorDetails?.specialty}</span>
+                                 <span className="truncate">{liveInfo(v).specialty}</span>
                                  <span>•</span>
-                                 <span className="truncate">{v.doctorDetails?.city}</span>
+                                 <span className="truncate">{liveInfo(v).city}</span>
                                </div>
                              </div>
                           </div>
@@ -342,7 +367,7 @@ export default function ReportsPage() {
                 <button onClick={() => { setSelectedVisit(null); setObs(''); setSamples([]); }} className="mb-8 text-gray-400 font-black uppercase text-[10px] flex items-center gap-2 hover:text-red-500 transition-colors"><X size={14}/> Cancelar y Volver</button>
                 <div className="mb-10 pb-6 border-b border-gray-50">
                    <h2 className="text-3xl font-black uppercase text-gray-900 tracking-tighter mb-2">{selectedVisit.doctorName}</h2>
-                   <p className="text-xs font-bold text-gray-400 uppercase flex flex-wrap items-center gap-2 italic"><MapPin size={14} className="text-blue-500 shrink-0"/> {selectedVisit.doctorDetails?.address} — {selectedVisit.doctorDetails?.city}</p>
+                   <p className="text-xs font-bold text-gray-400 uppercase flex flex-wrap items-center gap-2 italic"><MapPin size={14} className="text-blue-500 shrink-0"/> {liveInfo(selectedVisit).address} — {liveInfo(selectedVisit).city}</p>
                 </div>
                 <div className="space-y-12">
                   <div>
